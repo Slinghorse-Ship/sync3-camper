@@ -25,9 +25,10 @@ Item {
 
     function valid(value) { return value !== null && value !== undefined && value !== "" && isFinite(Number(value)) }
     function fmt(value) { return valid(value) ? Number(value).toFixed(1) + " °C" : "–" }
-    function ventilationPatch(enabled, onTemperature, hysteresis) {
+    function ventilationPatch(enabled, onTemperature, hysteresis, manualOn) {
         ventilationPatchRequested({ ventilation: {
             enabled: enabled,
+            manualOn: manualOn === undefined ? ventilation.manualOn === true : manualOn === true,
             onTemperature: Math.max(30, Math.min(95, Number(onTemperature))),
             hysteresis: Math.max(2, Math.min(20, Number(hysteresis)))
         } })
@@ -112,7 +113,7 @@ Item {
 
     Rectangle {
         x: 516; y: 72; width: 274; height: 342; radius: 13; color: view.panelColor
-        border.color: (view.controlTab === 0 ? view.automation.enabled : (view.controlTab === 1 ? view.ventilation.enabled : false)) ? "#42d6a4" : view.lineColor
+        border.color: (view.controlTab === 0 ? view.automation.enabled : (view.controlTab === 1 ? (view.ventilation.enabled || view.ventilation.manualOn) : false)) ? "#42d6a4" : view.lineColor
         TouchButton { x: 10; y: 10; width: 80; height: 34; label: "INNEN"; fontSize: 8; active: view.controlTab === 0; onClicked: view.controlTab = 0 }
         TouchButton { x: 97; y: 10; width: 80; height: 34; label: "CERBO CPU"; fontSize: 8; active: view.controlTab === 1; onClicked: view.controlTab = 1 }
         TouchButton { x: 184; y: 10; width: 80; height: 34; label: "SENSOREN"; fontSize: 8; active: view.controlTab === 2; onClicked: view.controlTab = 2 }
@@ -157,12 +158,13 @@ Item {
                 TouchButton { x: 202; y: 6; width: 38; height: 38; label: "+"; onClicked: view.ventilationPatch(view.ventilation.enabled === true, Number(view.ventilation.onTemperature || 65), Number(view.ventilation.hysteresis || 5) + 1) }
             }
             Rectangle { x: 14; y: 221; width: 246; height: 54; radius: 11; color: view.innerColor; border.color: view.lineColor
-                Text { x: 12; y: 8; text: "RELAIS 1 · ZULUFT"; color: view.textColor; font.pixelSize: 9; font.bold: true }
-                Text { x: 12; y: 30; text: view.ventilation.supplyOn ? "EIN" : "AUS"; color: view.ventilation.supplyOn ? "#42d6a4" : view.mutedColor; font.pixelSize: 9; font.bold: true }
-                Text { x: 126; y: 8; text: "RELAIS 2 · ABLUFT"; color: view.textColor; font.pixelSize: 9; font.bold: true }
-                Text { x: 126; y: 30; text: view.ventilation.exhaustOn ? "EIN" : "AUS"; color: view.ventilation.exhaustOn ? "#42d6a4" : view.mutedColor; font.pixelSize: 9; font.bold: true }
+                Text { x: 12; y: 8; text: "RELAIS 1 · ABLUFT"; color: view.textColor; font.pixelSize: 9; font.bold: true }
+                Text { x: 12; y: 30; text: view.ventilation.exhaustOn ? "EIN" : "AUS"; color: view.ventilation.exhaustOn ? "#42d6a4" : view.mutedColor; font.pixelSize: 9; font.bold: true }
+                Text { x: 126; y: 8; text: "RELAIS 2 · ZULUFT"; color: view.textColor; font.pixelSize: 9; font.bold: true }
+                Text { x: 126; y: 30; text: view.ventilation.supplyOn ? "EIN" : "AUS"; color: view.ventilation.supplyOn ? "#42d6a4" : view.mutedColor; font.pixelSize: 9; font.bold: true }
             }
-            TouchButton { x: 14; y: 286; width: 246; height: 43; label: view.ventilation.enabled ? "CPU-LÜFTUNG AUS" : "CPU-LÜFTUNG EIN"; fontSize: 10; active: view.ventilation.enabled === true; accentColor: "#42d6a4"; onClicked: view.ventilationPatch(!view.ventilation.enabled, Number(view.ventilation.onTemperature || 65), Number(view.ventilation.hysteresis || 5)) }
+            TouchButton { x: 14; y: 286; width: 118; height: 43; label: view.ventilation.enabled ? "AUTO AUS" : "AUTO EIN"; fontSize: 9; active: view.ventilation.enabled === true; accentColor: "#42d6a4"; onClicked: view.ventilationPatch(!view.ventilation.enabled, Number(view.ventilation.onTemperature || 65), Number(view.ventilation.hysteresis || 5)) }
+            TouchButton { x: 142; y: 286; width: 118; height: 43; label: view.ventilation.manualOn ? "MANUELL AUS" : "MANUELL EIN"; fontSize: 9; active: view.ventilation.manualOn === true; accentColor: "#45c9fa"; onClicked: view.ventilationPatch(view.ventilation.enabled === true, Number(view.ventilation.onTemperature || 65), Number(view.ventilation.hysteresis || 5), !view.ventilation.manualOn) }
         }
 
         Item {
