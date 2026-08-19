@@ -1,4 +1,4 @@
-# CamperControl 3.10.0 für SYNC 3.4 / FMods
+# CamperControl 3.11.0 für SYNC 3.4 / FMods
 
 Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine native QNX-Binärdatei, keine Qt-WebSocket-Erweiterung und kein separates Desktop-QML-Projekt.
 
@@ -12,7 +12,9 @@ Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine n
 
 ## Installation
 
-Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.10.0 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
+Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.11.0 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
+
+Version 3.11.0 portiert den aktuellen **Transit-Horizon-V2-Prototyp** als native QtQuick-2.6-Oberfläche für 800 × 480 Pixel: Home, klickbare Lichtfotos beider Transit-Seiten mit sechs Lichtkreisen, Dimmer und Fernlicht, 12-/230-V-Verbraucher, Energiequellen mit schaltbarem Orion/INDEVOLT, Solar-Detail, Klima, Wasser und System. Alle Werte und Bedienungen verwenden den vorhandenen gemeinsamen `ApiClient`, Live-Snapshot und die etablierten Befehle; es gibt weder HTML-Einbettung noch übernommene Demo-Werte. Nicht verfügbare Sensoren und Geräte werden als Strich beziehungsweise deaktiviert angezeigt. Design V1 bleibt vollständig und unverändert auswählbar.
 
 Version 3.10.0 macht **Design V1** und **Design V2** unter `EINSTELLUNGEN → OBERFLÄCHE` auswählbar. Die Wahl wird sofort in der bestehenden lokalen Konfiguration gespeichert und nach einem Neustart wiederhergestellt. V1 bleibt als vollständige bisherige Bedienoberfläche erhalten; V2 nutzt die moderne Shell. Beide Designs teilen unverändert denselben `ApiClient`, denselben Live-Zustand und dieselben realen Cerbo-/Node-RED-Befehle.
 

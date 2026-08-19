@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_APP = ROOT / "SyncMyMod" / "files" / "app" / "Jan" / "Camper"
 DAY_MODE = "--day" in sys.argv
 PAGE = next((int(arg.split("=", 1)[1]) for arg in sys.argv if arg.startswith("--page=")), 0)
+V2_PAGE = next((int(arg.split("=", 1)[1]) for arg in sys.argv if arg.startswith("--v2-page=")), 0)
+ENERGY_PANE = next((int(arg.split("=", 1)[1]) for arg in sys.argv if arg.startswith("--energy-pane=")), 0)
 PASSENGER_VIEW = "--passenger-view" in sys.argv
 SETTINGS_VIEW = "--settings" in sys.argv
 WIFI_SETTINGS_VIEW = "--wifi-settings" in sys.argv
@@ -248,12 +250,16 @@ def prepare_app(temp_root: Path) -> Path:
             'property string settingsFile: "file:///fs/rwdata/fmods/mods/camper/config.json"',
             'property string settingsFile: "' + preview_config.as_uri() + '"',
         )
-        if PASSENGER_VIEW and qml_file.name == "VehicleLights.qml":
+        if PASSENGER_VIEW and qml_file.name in ("VehicleLights.qml", "V2LightsPage.qml"):
             text = text.replace("property bool rightView: false", "property bool rightView: true")
         if (SETTINGS_VIEW or WIFI_SETTINGS_VIEW) and qml_file.name == "CamperMain.qml":
             text = text.replace("property bool settingsOpen: false", "property bool settingsOpen: true")
         if DESIGN in ("v1", "v2") and qml_file.name == "CamperMain.qml":
             text = text.replace('property string designVersion: "v2"', 'property string designVersion: "' + DESIGN + '"')
+        if qml_file.name == "ModernShell.qml":
+            text = text.replace("property int currentPage: 0", "property int currentPage: " + str(V2_PAGE))
+        if qml_file.name == "V2EnergyPage.qml":
+            text = text.replace("property int pane: 0", "property int pane: " + str(ENERGY_PANE))
         if WIFI_SETTINGS_VIEW and qml_file.name == "SettingsPanel.qml":
             text = text.replace("id: scroller", "id: scroller\n        Component.onCompleted: contentY = 905")
         if CPU_VIEW and qml_file.name == "TemperatureDetails.qml":
@@ -298,7 +304,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="camper-control-preview-") as directory:
         app_file = prepare_app(Path(directory))
         view = PreviewView()
-        view.setTitle("CamperControl v3.10.0 – lokale UI-Vorschau (keine Hardware)")
+        view.setTitle("CamperControl v3.11.0 – lokale UI-Vorschau (keine Hardware)")
         view.setResizeMode(QQuickView.SizeRootObjectToView)
         view.setSource(QUrl.fromLocalFile(str(app_file)))
         if view.status() == QQuickView.Error:

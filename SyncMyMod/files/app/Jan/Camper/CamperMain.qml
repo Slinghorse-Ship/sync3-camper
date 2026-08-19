@@ -392,6 +392,7 @@ Item {
 
     ApiClient {
         id: api
+        objectName: "camperApiClient"
         baseUrl: root.baseUrl
         onSettingsReceived: root.loadRemoteSettings(settings)
     }
@@ -841,7 +842,7 @@ Item {
 
         Rectangle {
             x: 0; y: 422; width: 800; height: 58; z: 120
-            visible: true
+            visible: root.designVersion === "v1"
             color: root.headerColor
             border.color: root.lineColor
 

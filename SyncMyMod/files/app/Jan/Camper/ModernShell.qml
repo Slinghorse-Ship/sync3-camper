@@ -2,10 +2,14 @@ import QtQuick 2.6
 
 Item {
     id: shell
+    objectName: "modernShell"
     property var host
     property var api
     property var snapshot: ({})
     property bool dayMode: false
+    property var quickAccessIds: []
+    property int currentPage: 0
+    property double now: new Date().getTime()
 
     property var system: snapshot.system || ({})
     property var energy: snapshot.energy || ({})
@@ -15,315 +19,277 @@ Item {
     property var water: snapshot.water || ({})
     property var fresh: water.fresh || ({})
     property var climate: snapshot.climate || ({})
+    property var temperatureSensors: climate.temperatureSensors || ({})
+    property var automation: climate.automation || ({})
     property var heater: climate.heater || ({})
     property var fan: climate.fan || ({})
-    property var power: snapshot.power || ({})
-    property var inverter: power.inverter || ({})
-    property var dcChannels: power.dcChannels || []
-    property var powerPageChannels: {
-        var filtered = []
-        for (var channelIndex = 0; channelIndex < dcChannels.length; ++channelIndex)
-            if (Number(dcChannels[channelIndex].channel) !== 3 && dcChannels[channelIndex].id !== "high_beam_manual")
-                filtered.push(dcChannels[channelIndex])
-        return filtered
-    }
-    property var externalWifi: host ? host.externalWifiState() : ({ available: false, enabled: false, state: "nicht verfügbar", ssid: "" })
-    property int powerTileCount: powerPageChannels.length + (host && host.showExternalWifiTile ? 1 : 0)
-    property var vehicle: snapshot.vehicle || ({})
-    property var highBeam: vehicle.highBeam || ({})
     property var lights: snapshot.lights || ({})
-    property var quickAccessIds: ["switch:water_pump", "switch:starlink", "switch:dc_outlets_left", "light:inside_main"]
     property var operations: snapshot.operations || ({})
-    property var commandData: operations.commands || ({})
-    property var eventData: operations.events || ({})
-    property color background: visual.backgroundBottom
-    property color panel: visual.panel
-    property color inner: visual.inner
-    property color textColor: visual.text
-    property color muted: visual.muted
-    property color line: visual.border
-    property color blue: visual.blue
-    property color green: visual.green
-    property color orange: visual.orange
 
     CamperStyle { id: visual; dayMode: shell.dayMode }
 
-    function fmt(value, digits, suffix) {
-        if (value === null || value === undefined || value === "" || !isFinite(Number(value))) return "-"
-        return Number(value).toFixed(digits) + (suffix || "")
+    function valid(value) { return value !== null && value !== undefined && value !== "" && isFinite(Number(value)) }
+    function fmt(value, digits, suffix) { return valid(value) ? Number(value).toFixed(digits) + (suffix || "") : "–" + (suffix || "") }
+    function signed(value, digits, suffix) { return valid(value) ? (Number(value) > 0 ? "+" : "") + Number(value).toFixed(digits) + (suffix || "") : "–" + (suffix || "") }
+    function title() { return ["Home", "Licht", "Klima", "Energie", "Wasser", "System"][currentPage] || "Camper" }
+    function timeToGo(value) {
+        if (!valid(value)) return "–"
+        var hours = Math.floor(Number(value) / 3600)
+        return hours >= 48 ? Math.round(hours / 24) + " d" : hours + " h"
     }
-
-    function go(index) { host.page = index }
-    function command(target, action, value, extra) { api.command(target, action, value, extra || ({})) }
-    function temperatureCount() {
-        var values = [climate.roomTemperature, heater.internalTemperature, heater.externalTemperature]
-        var count = 0
-        for (var i = 0; i < values.length; ++i)
-            if (values[i] !== null && values[i] !== undefined && values[i] !== "" && isFinite(Number(values[i]))) count += 1
-        return count
-    }
-    function compactLightName(light) {
-        if (light.id === "outside_front_white") return "TAGFAHR"
-        if (light.id === "outside_front_amber") return "WARNBLINK"
-        return light.name
-    }
-    function lightIconKind(light) {
-        if (light.id === "high_beam") return "highBeam"
-        if (light.id === "inside_main") return "cabinLight"
-        if (light.id === "outside_rear") return "rearLight"
-        if (light.id === "outside_left") return "workLightLeft"
-        if (light.id === "outside_right") return "workLightRight"
-        if (light.id === "outside_front_white") return "lightBar"
-        if (light.id === "outside_front_amber") return "warningBar"
-        return "workLight"
-    }
-    function powerIconKind(channel) {
-        var number = Number(channel.channel)
-        if (channel.id === "dc_outlets_left" || channel.id === "dc_outlets_right" || number === 1 || number === 4) return "outlet"
-        if (channel.id === "water_pump" || number === 2) return "pump"
-        if (channel.id === "high_beam_manual" || number === 3) return "highBeam"
-        if (channel.id === "starlink" || number === 5) return "satellite"
-        if (channel.id === "maxxfan_power" || number === 6) return "fan"
-        return "power"
-    }
-    function powerTileX(index) {
-        if (powerTileCount === 5 && index >= 3) return 144 + (index - 3) * 260
-        return 14 + (index % 3) * 260
+    function comfortHumidity() {
+        var comfort = temperatureSensors.comfort || ({}), ceiling = temperatureSensors.ceiling || ({}), floor = temperatureSensors.floor || ({})
+        if (valid(comfort.humidity)) return Number(comfort.humidity)
+        if (valid(ceiling.humidity) && valid(floor.humidity)) return (Number(ceiling.humidity) + Number(floor.humidity)) / 2
+        if (valid(ceiling.humidity)) return Number(ceiling.humidity)
+        if (valid(floor.humidity)) return Number(floor.humidity)
+        return null
     }
     function findLight(id) {
         var items = lights.items || []
         for (var i = 0; i < items.length; ++i) if (items[i].id === id) return items[i]
-        return ({ id: id, name: id, channel: 0, on: false, dimming: 0, dimmable: false })
+        return ({ id:id, channel:0, on:false, dimming:0 })
+    }
+    function fallbackQuick() {
+        var defs = [
+            {id:"outside_front_white",name:"Tagfahrlicht",icon:"lightbar"},
+            {id:"outside_front_amber",name:"Warnlicht",icon:"warningbar"},
+            {id:"inside_main",name:"Innenlicht",icon:"bulb"},
+            {id:"outside_right",name:"Außen rechts",icon:"right-light"}
+        ]
+        var result = []
+        for (var i = 0; i < defs.length; ++i) {
+            var light = findLight(defs[i].id)
+            result.push({ name:defs[i].name, icon:defs[i].icon, active:light.on === true, available:Number(light.channel) > 0,
+                command:{ target:"starpower", action:"set", value:light.on === true ? 0 : 1, channel:Number(light.channel) } })
+        }
+        return result
     }
     function quickItems() {
         var items = snapshot.ui && snapshot.ui.quickAccess
-        return items && items.length ? items : []
+        return items && items.length ? items.slice(0, 4) : fallbackQuick()
     }
-    function quickIconKind(item) {
-        var kinds = {
-            "bulb": "cabinLight", "right-light": "workLightRight", "down-light": "rearLight",
-            "left-light": "workLightLeft", "lightbar": "lightBar", "warningbar": "warningBar",
-            "highbeam": "highBeam", "outlet": "outlet", "pump": "pump", "satellite": "satellite",
-            "fan": "fan", "plug": "plug", "heater": "climate", "battery": "battery", "home": "scenes"
-        }
-        return kinds[item.icon] || "power"
+    function quickIcon(item) {
+        var kinds = { "bulb":"cabinLight", "right-light":"sideRight", "down-light":"rearLight", "left-light":"sideLeft", "lightbar":"lightBar", "warningbar":"warningBar", "highbeam":"highBeam", "outlet":"outlet", "pump":"pump", "satellite":"satellite", "fan":"fan", "plug":"plug", "heater":"flame", "battery":"battery" }
+        return kinds[item.icon] || "energy"
     }
     function activateQuick(item) {
         var action = item && item.command
         if (!item || item.available !== true || !action || !action.target) return
         var extra = ({})
-        for (var key in action)
-            if (key !== "target" && key !== "action" && key !== "value") extra[key] = action[key]
-        command(action.target, action.action, action.value, extra)
+        for (var key in action) if (key !== "target" && key !== "action" && key !== "value") extra[key] = action[key]
+        api.command(action.target, action.action, action.value, extra)
+    }
+    function patchAutomationTarget(delta) {
+        var target = Math.max(10, Math.min(30, Number(automation.targetTemperature || 20) + delta))
+        api.command("settings", "patch", null, { patch: { climateAutomation: {
+            enabled: automation.enabled === true,
+            mode: automation.mode || "auto",
+            targetTemperature: target,
+            hysteresis: Math.max(.5, Math.min(5, Number(automation.hysteresis || 1))),
+            fanSpeed: Math.max(10, Math.min(100, Math.round(Number(automation.fanSpeed || 50) / 10) * 10))
+        } } })
+    }
+    function deviceCountText() {
+        var devices = operations.devices || []
+        if (!devices.length) return "Keine Gerätedaten"
+        var online = 0
+        for (var i = 0; i < devices.length; ++i) if (devices[i].online === true) ++online
+        return online + " / " + devices.length
     }
 
     Rectangle {
         anchors.fill: parent
-        color: shell.background
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: visual.backgroundTop }
-            GradientStop { position: 1.0; color: visual.backgroundBottom }
-        }
+        radius: 25; color: "#030609"; border.color: shell.dayMode ? "#c8d1d6" : "#22313d"
     }
-
     Rectangle {
-        x: 0; y: 0; width: 800; height: 58
-        color: visual.header
-        border.color: shell.line
-        Image { x: 5; y: 4; width: 56; height: 50; source: "Icon.png"; fillMode: Image.PreserveAspectFit; smooth: true }
-        Text { x: 65; y: 10; text: (shell.system.name || "CAMPER").toUpperCase(); color: shell.textColor; font.pixelSize: 17; font.bold: true }
-        Text { x: 65; y: 31; text: "\u00b7 " + ["HOME", "LICHT", "SZENEN", "MELDUNGEN", "SERVICE", "12 / 230 V"][shell.host.page]; color: shell.blue; font.pixelSize: 11; font.bold: true }
-
-        Rectangle {
-            x: 524; y: 14; width: 112; height: 29; radius: 15
-            color: shell.inner; border.color: shell.api.connected ? shell.green : "#ef6e76"
-            Rectangle { x: 10; y: 10; width: 8; height: 8; radius: 4; color: shell.api.connected ? shell.green : "#ef6e76" }
-            Text { x: 24; anchors.verticalCenter: parent.verticalCenter; text: shell.api.connected ? "VERBUNDEN" : "VERBINDUNG"; color: shell.textColor; font.pixelSize: 9; font.bold: true }
-        }
-        Rectangle {
-            x: 647; y: 9; width: 92; height: 39; radius: 9; color: settingsArea.pressed ? shell.inner : "transparent"; border.color: shell.line
-            LineIcon { x: 9; y: 8; width: 22; height: 22; kind: "settings"; lineColor: shell.textColor; strokeWidth: 1.8 }
-            Text { x: 37; anchors.verticalCenter: parent.verticalCenter; text: "EINST."; color: shell.textColor; font.pixelSize: 10; font.bold: true }
-            MouseArea { id: settingsArea; anchors.fill: parent; onClicked: shell.host.openSettings() }
-        }
-        Rectangle {
-            x: 748; y: 9; width: 42; height: 39; radius: 9; color: closeArea.pressed ? "#44232a" : "transparent"; border.color: "#5a333b"
-            LineIcon { anchors.centerIn: parent; width: 23; height: 23; kind: "close"; lineColor: shell.textColor; strokeWidth: 2.6 }
-            MouseArea { id: closeArea; anchors.fill: parent; onClicked: shell.host.requestClose() }
+        id: screen
+        x: 7; y: 7; width: 786; height: 466; radius: 19; clip: true
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: shell.dayMode ? "#f8fafb" : "#0d1722" }
+            GradientStop { position: 1.0; color: shell.dayMode ? "#edf2f4" : "#080c12" }
         }
     }
 
     Item {
-        x: 0; y: 58; width: 800; height: 364; visible: shell.host.page === 0
-        ModernTile { x: 10; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "battery"; caption: shell.battery.name || "BATTERIE"; value: shell.fmt(shell.battery.soc, 0, " %"); detail: "Starter " + shell.fmt(shell.battery.starterVoltage, 1, " V"); active: Number(shell.battery.soc || 0) > 0; accentColor: shell.blue; onClicked: shell.go(8) }
-        ModernTile { x: 207; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "solar"; caption: "SOLAR GESAMT"; value: shell.fmt(shell.energy.totalSolarPower, 0, " W"); detail: (shell.solar.chargers || []).length + " MPPT · INDEVOLT SOLAR " + (shell.indevolt.online ? "ONLINE" : "OFFLINE"); active: Number(shell.energy.totalSolarPower || 0) > 0; accentColor: shell.blue; onClicked: shell.go(7) }
-        ModernTile { x: 404; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "water"; caption: shell.fresh.name || "FRISCHWASSER"; value: shell.fmt(shell.fresh.level, 0, " %"); detail: shell.fmt(shell.fresh.remainingLitres, 0, " Liter"); active: Number(shell.fresh.level || 0) > 0; accentColor: shell.blue }
-        ModernTile { x: 601; y: 10; width: 189; height: 88; dayMode: shell.dayMode; icon: "climate"; caption: "INNENRAUM"; value: shell.fmt(shell.climate.roomTemperature, 1, " \u00b0C"); detail: shell.temperatureCount() > 1 ? shell.temperatureCount() + " MESSWERTE" : "TEMPERATUR"; active: shell.temperatureCount() > 1; accentColor: shell.blue; onClicked: if (shell.temperatureCount() > 1) shell.go(10) }
-
+        x: 7; y: 7; width: 786; height: 50
+        Image { x: 14; y: 7; width: 55; height: 35; source: shell.dayMode ? "transit-line-symbol-light.png" : "transit-line-symbol-dark.png"; fillMode: Image.PreserveAspectFit; smooth: true }
+        Text { x: 80; y: 13; width: 385; text: shell.title(); color: visual.text; font.pixelSize: 19; font.bold: true }
         Rectangle {
-            x: 10; y: 108; width: 384; height: 118; radius: 15; color: shell.panel; border.color: shell.heater.on ? shell.orange : shell.line
-            LineIcon { x: 20; y: 20; width: 34; height: 34; kind: "climate"; lineColor: shell.heater.on ? shell.orange : shell.muted; strokeWidth: 1.9 }
-            Text { x: 72; y: 14; width: 180; elide: Text.ElideRight; text: "AUTOTERM AIR 2D"; color: shell.textColor; font.pixelSize: 14; font.bold: true }
-            Text { x: 72; y: 38; text: shell.fmt(shell.heater.setpoint, 0, " \u00b0C SOLL") + "  |  " + (shell.heater.status || "keine Daten"); color: shell.muted; font.pixelSize: 10 }
-            MouseArea { x: 8; y: 8; width: 250; height: 53; onClicked: shell.go(6) }
-            TouchButton { x: 268; y: 12; width: 100; height: 42; label: shell.heater.on ? "STOPP" : "START"; active: shell.heater.on === true; accentColor: shell.orange; onClicked: shell.command("heater", shell.heater.on ? "stop" : "start", null) }
-            Rectangle { x: 16; y: 72; width: 352; height: 1; color: shell.line }
-            Text { x: 16; y: 87; text: shell.fan.name || "MAXXFAN"; color: shell.textColor; font.pixelSize: 10; font.bold: true }
-            LineIcon { x: 112; y: 81; width: 25; height: 25; kind: "fan"; lineColor: shell.fan.on ? shell.blue : shell.muted; strokeWidth: 1.8 }
-            Text { x: 145; y: 87; text: shell.fmt(shell.fan.speed, 0, " %"); color: shell.textColor; font.pixelSize: 11; font.bold: true }
-            MouseArea { x: 8; y: 76; width: 250; height: 40; onClicked: shell.go(9) }
-            TouchButton { x: 268; y: 77; width: 100; height: 36; label: shell.fan.on ? "AUSSCHALTEN" : "EINSCHALTEN"; active: shell.fan.on === true; onClicked: shell.command("maxxfan", "set", !shell.fan.on) }
+            x: 602; y: 10; width: 76; height: 30; radius: 15
+            color: shell.api.connected ? visual.selectedGreen : (shell.dayMode ? "#f8e8e9" : "#321d22")
+            Rectangle { x: 10; y: 11; width: 7; height: 7; radius: 4; color: shell.api.connected ? visual.green : visual.red }
+            Text { x: 25; y: 8; width: 44; text: Qt.formatTime(new Date(shell.now), "hh:mm"); color: shell.api.connected ? visual.green : visual.red; font.pixelSize: 10; font.bold: true }
+        }
+        Rectangle { x: 688; y: 6; width: 38; height: 38; radius: 12; color: visual.inner
+            V2Icon { anchors.centerIn: parent; width: 20; height: 20; kind: "sunMoon"; lineColor: visual.text; strokeWidth: 1.8 }
+            MouseArea { anchors.fill: parent; onClicked: shell.host.dayMode = !shell.host.dayMode }
+        }
+        Rectangle { x: 734; y: 6; width: 38; height: 38; radius: 12; color: visual.inner
+            V2Icon { anchors.centerIn: parent; width: 20; height: 20; kind: "settings"; lineColor: visual.text; strokeWidth: 1.8 }
+            MouseArea { anchors.fill: parent; onClicked: shell.currentPage = 5 }
+        }
+        Rectangle { x: 0; y: 49; width: 786; height: 1; color: visual.border; opacity: .55 }
+    }
+
+    Item {
+        x: 19; y: 65; width: 762; height: 326; visible: shell.currentPage === 0
+        Rectangle {
+            x: 0; y: 0; width: 440; height: 184; radius: 17; color: visual.panel; border.color: visual.border
+            V2Gauge { x: 15; y: 40; width: 106; height: 106; dayMode: shell.dayMode; value: Number(shell.battery.soc || 0); primaryText: shell.fmt(shell.battery.soc, 0, "%"); secondaryText: shell.fmt(shell.battery.voltage, 2, " V") + " · " + shell.timeToGo(shell.battery.timeToGoSeconds) }
+            Text { x: 138; y: 15; text: "Energie"; color: visual.text; font.pixelSize: 14; font.bold: true }
+            Rectangle { x: 138; y: 49; width: 138; height: 119; radius: 12; color: visual.inner
+                V2Icon { x: 11; y: 11; width: 21; height: 21; kind: "solar"; lineColor: visual.blue; strokeWidth: 1.7 }
+                Text { x: 10; y: 48; text: shell.fmt(shell.energy.totalSolarPower, 0, " W"); color: visual.text; font.pixelSize: 20; font.bold: true }
+                Text { x: 10; y: 79; text: "Solar gesamt"; color: visual.muted; font.pixelSize: 9 }
+                MouseArea { anchors.fill: parent; onClicked: { shell.currentPage = 3; energyPage.pane = 2 } }
+            }
+            Rectangle { x: 284; y: 49; width: 141; height: 119; radius: 12; color: visual.inner
+                V2Icon { x: 11; y: 11; width: 21; height: 21; kind: "battery"; lineColor: visual.blue; strokeWidth: 1.7 }
+                Text { x: 10; y: 48; text: shell.signed(shell.battery.power, 0, " W"); color: visual.text; font.pixelSize: 20; font.bold: true }
+                Text { x: 10; y: 79; text: "Batterieleistung"; color: visual.muted; font.pixelSize: 9 }
+            }
         }
 
         Rectangle {
-            x: 404; y: 108; width: 386; height: 118; radius: 15; color: shell.panel; border.color: shell.line
-            LineIcon { x: 20; y: 20; width: 34; height: 34; kind: "pump"; lineColor: shell.water.pump && shell.water.pump.on ? shell.blue : shell.muted; strokeWidth: 1.9 }
-            Text { x: 72; y: 14; text: "WASSERPUMPE"; color: shell.textColor; font.pixelSize: 14; font.bold: true }
-            Text { x: 72; y: 38; text: shell.water.pump && shell.water.pump.on ? "EINGESCHALTET" : "AUSGESCHALTET"; color: shell.muted; font.pixelSize: 10 }
-            TouchButton { x: 270; y: 12; width: 100; height: 42; label: shell.water.pump && shell.water.pump.on ? "AUSSCHALTEN" : "EINSCHALTEN"; active: shell.water.pump && shell.water.pump.on === true; onClicked: shell.command("waterPump", "set", !(shell.water.pump && shell.water.pump.on)) }
-            Rectangle { x: 16; y: 72; width: 354; height: 1; color: shell.line }
-            Text { x: 16; y: 87; text: "MULTIPLUS COMPACT"; color: shell.textColor; font.pixelSize: 11; font.bold: true }
-            Text { x: 168; y: 87; text: shell.fmt(shell.inverter.outputPower, 0, " W"); color: shell.muted; font.pixelSize: 10 }
-            TouchButton { x: 270; y: 77; width: 100; height: 36; label: shell.inverter.on ? "230 V AUS" : "230 V AN"; active: shell.inverter.on === true; accentColor: "#ad8cf2"; onClicked: shell.command("inverter", "set", !shell.inverter.on) }
+            x: 449; y: 0; width: 313; height: 184; radius: 17; color: visual.panel; border.color: visual.border
+            Text { x: 14; y: 13; text: "Klimaautomatik"; color: visual.text; font.pixelSize: 14; font.bold: true }
+            Text { x: 14; y: 48; text: shell.fmt(shell.climate.roomTemperature, 1, "°"); color: visual.text; font.pixelSize: 37; font.bold: true }
+            Text { x: 218; y: 59; width: 80; horizontalAlignment: Text.AlignRight; text: shell.valid(shell.comfortHumidity()) ? shell.fmt(shell.comfortHumidity(), 0, " % rF") : ""; color: visual.muted; font.pixelSize: 9 }
+            Rectangle { x: 14; y: 96; width: 137; height: 28; radius: 9; color: visual.inner
+                V2Icon { x: 7; y: 6; width: 16; height: 16; kind: "flame"; lineColor: visual.orange; strokeWidth: 1.6 }
+                Text { x: 30; y: 8; text: "Autoterm"; color: visual.text; font.pixelSize: 9; font.bold: true }
+            }
+            Rectangle { x: 159; y: 96; width: 139; height: 28; radius: 9; color: visual.inner
+                V2Icon { x: 7; y: 6; width: 16; height: 16; kind: "fan"; lineColor: visual.blue; strokeWidth: 1.6 }
+                Text { x: 30; y: 8; text: "MaxxFan"; color: visual.text; font.pixelSize: 9; font.bold: true }
+            }
+            Rectangle { x: 14; y: 135; width: 46; height: 36; radius: 11; color: visual.inner
+                Text { anchors.centerIn: parent; text: "−"; color: visual.text; font.pixelSize: 20 }
+                MouseArea { anchors.fill: parent; onClicked: shell.patchAutomationTarget(-1) }
+            }
+            Text { x: 69; y: 139; width: 174; horizontalAlignment: Text.AlignHCenter; text: shell.fmt(shell.automation.targetTemperature, 0, "°"); color: visual.text; font.pixelSize: 20; font.bold: true }
+            Text { x: 69; y: 161; width: 174; horizontalAlignment: Text.AlignHCenter; text: "Ziel"; color: visual.muted; font.pixelSize: 8 }
+            Rectangle { x: 252; y: 135; width: 46; height: 36; radius: 11; color: visual.inner
+                Text { anchors.centerIn: parent; text: "+"; color: visual.text; font.pixelSize: 20 }
+                MouseArea { anchors.fill: parent; onClicked: shell.patchAutomationTarget(1) }
+            }
         }
 
         Rectangle {
-            x: 10; y: 236; width: 780; height: 116; radius: 15; color: shell.panel; border.color: shell.line
-            Text { x: 16; y: 12; text: "SCHNELLZUGRIFF"; color: shell.muted; font.pixelSize: 9; font.bold: true }
+            x: 0; y: 193; width: 762; height: 133; radius: 17; color: visual.panel; border.color: visual.border
+            Text { x: 11; y: 10; text: "Schnellzugriff"; color: visual.text; font.pixelSize: 12; font.bold: true }
+            Text { x: 675; y: 10; width: 76; horizontalAlignment: Text.AlignRight; text: "Anpassen"; color: visual.blue; font.pixelSize: 9; font.bold: true }
+            MouseArea { x: 664; y: 0; width: 98; height: 38; onClicked: shell.host.openSettings() }
             Repeater {
                 model: shell.quickItems()
                 delegate: Rectangle {
                     property var quick: modelData
-                    x: 14 + index * 190; y: 34; width: 180; height: 68; radius: 12
-                    opacity: quick.available === true ? 1.0 : 0.52
-                    color: quick.active ? (shell.dayMode ? "#dff4ed" : "#15342d") : shell.inner
-                    border.color: quick.active ? shell.green : shell.line
-                    LineIcon { x: 73; y: 3; width: 32; height: 32; kind: shell.quickIconKind(quick); lineColor: quick.active ? (quick.icon === "warningbar" ? shell.orange : shell.green) : shell.muted; strokeWidth: 1.8 }
-                    Text { x: 8; y: 39; width: 164; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: quick.name; color: shell.textColor; font.pixelSize: 9; font.bold: true }
-                    Text { x: 8; y: 54; width: 164; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: quick.status || ""; color: shell.muted; font.pixelSize: 7; font.bold: true }
+                    x: 10 + index * 187; y: 36; width: 180; height: 86; radius: 14
+                    opacity: quick.available === true ? 1 : .45
+                    color: quick.active === true ? visual.selectedBlue : visual.inner
+                    border.width: quick.active === true ? 2 : 1; border.color: quick.active === true ? visual.blue : visual.border
+                    Rectangle { x: 10; y: 25; width: 36; height: 36; radius: 11; color: quick.active === true ? visual.blue : visual.disabled
+                        V2Icon { anchors.centerIn: parent; width: 22; height: 22; kind: shell.quickIcon(quick); lineColor: quick.active === true ? "#ffffff" : visual.muted; strokeWidth: 1.7 }
+                    }
+                    Text { x: 55; y: 35; width: 116; elide: Text.ElideRight; text: quick.name || "Schnellzugriff"; color: quick.active === true ? visual.blue : visual.text; font.pixelSize: 10; font.bold: true }
                     MouseArea { anchors.fill: parent; enabled: quick.available === true; onClicked: shell.activateQuick(quick) }
                 }
             }
         }
     }
 
-    VehicleLights {
-        x: 0; y: 58; width: 800; height: 364
-        visible: shell.host.page === 1
-        lights: shell.lights.items || []
-        highBeam: shell.highBeam
-        dayMode: shell.dayMode
-        onSetRequested: if (channel > 0) shell.command("starpower", "set", enabled ? 1 : 0, { channel: channel })
-        onDimRequested: if (channel > 0) shell.command("starpower", "dim", value, { channel: channel })
-        onHighBeamRequested: if (channel > 0) shell.command("starpower", "set", enabled ? 1 : 0, { channel: channel })
-        onFrontModeRequested: shell.host.setFrontMode(mode)
-    }
+    V2LightsPage { x: 19; y: 65; width: 762; height: 326; visible: shell.currentPage === 1; host: shell.host; api: shell.api; snapshot: shell.snapshot; dayMode: shell.dayMode }
+    V2ClimatePage { x: 19; y: 65; width: 762; height: 326; visible: shell.currentPage === 2; api: shell.api; snapshot: shell.snapshot; dayMode: shell.dayMode }
+    V2EnergyPage { id: energyPage; x: 19; y: 65; width: 762; height: 326; visible: shell.currentPage === 3; api: shell.api; snapshot: shell.snapshot; dayMode: shell.dayMode }
 
     Item {
-        x: 0; y: 58; width: 800; height: 364; visible: shell.host.page === 2
-        Text { x: 14; y: 12; text: "SZENEN"; color: shell.textColor; font.pixelSize: 20; font.bold: true }
-        Text { x: 14; y: 39; text: "Mehrere Systeme mit einem Tipp"; color: shell.muted; font.pixelSize: 10 }
-        Repeater {
-            model: shell.operations.scenes || []
-            delegate: Rectangle {
-                property var scene: modelData
-                x: 14 + (index % 3) * 260; y: 70 + Math.floor(index / 3) * 123; width: 246; height: 108; radius: 15; color: shell.panel; border.color: shell.line
-                LineIcon { x: 17; y: 20; width: 53; height: 53; kind: scene.icon === "night" || scene.icon === "sleep" ? "alerts" : "scenes"; lineColor: "#f4c94c" }
-                Text { x: 86; y: 20; width: 145; elide: Text.ElideRight; text: scene.name; color: shell.textColor; font.pixelSize: 16; font.bold: true }
-                Text { x: 86; y: 47; text: scene.actionCount + " AKTIONEN"; color: shell.muted; font.pixelSize: 9 }
-                Text { x: 86; y: 72; text: "STARTEN  >"; color: shell.blue; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: shell.host.runScene(scene) }
+        x: 19; y: 65; width: 762; height: 326; visible: shell.currentPage === 4
+        Rectangle { x: 0; y: 0; width: 376; height: 326; radius: 17; color: visual.panel; border.color: visual.border
+            Text { x: 16; y: 15; text: "Frischwasser"; color: visual.text; font.pixelSize: 14; font.bold: true }
+            V2Gauge { x: 111; y: 71; width: 154; height: 154; dayMode: shell.dayMode; value: Number(shell.fresh.level || 0); primaryText: shell.fmt(shell.fresh.level, 0, "%"); secondaryText: shell.valid(shell.fresh.remainingLitres) ? shell.fmt(shell.fresh.remainingLitres, 0, " Liter") : "Nicht verfügbar"; accentColor: visual.blue; opacity: shell.valid(shell.fresh.level) ? 1 : .45 }
+        }
+        Rectangle { x: 385; y: 0; width: 377; height: 326; radius: 17; color: shell.water.pump && shell.water.pump.on === true ? visual.selectedBlue : visual.panel; border.width: shell.water.pump && shell.water.pump.on === true ? 2 : 1; border.color: shell.water.pump && shell.water.pump.on === true ? visual.blue : visual.border
+            Rectangle { x: 144; y: 83; width: 88; height: 88; radius: 25; color: shell.water.pump && shell.water.pump.on === true ? visual.blue : visual.disabled
+                V2Icon { anchors.centerIn: parent; width: 53; height: 53; kind: "pump"; lineColor: shell.water.pump && shell.water.pump.on === true ? "#ffffff" : visual.muted; strokeWidth: 2 }
             }
+            Text { x: 20; y: 202; width: 337; horizontalAlignment: Text.AlignHCenter; text: "Wasserpumpe"; color: visual.text; font.pixelSize: 17; font.bold: true }
+            MouseArea { anchors.fill: parent; onClicked: shell.api.command("waterPump", "set", !(shell.water.pump && shell.water.pump.on)) }
         }
     }
 
     Item {
-        x: 0; y: 58; width: 800; height: 364; visible: shell.host.page === 3
-        LineIcon { x: 15; y: 13; width: 38; height: 38; kind: "alerts"; lineColor: shell.eventData.unacknowledgedCount ? shell.orange : shell.green }
-        Text { x: 65; y: 13; text: "MELDUNGEN"; color: shell.textColor; font.pixelSize: 20; font.bold: true }
-        Text { x: 65; y: 39; text: (shell.eventData.unacknowledgedCount || 0) + " unbest\u00e4tigt"; color: shell.muted; font.pixelSize: 10 }
+        x: 19; y: 65; width: 762; height: 326; visible: shell.currentPage === 5
         Repeater {
-            model: shell.eventData.recent ? Math.min(6, shell.eventData.recent.length) : 0
-            delegate: Rectangle {
-                property var item: shell.eventData.recent[index]
-                x: 14; y: 66 + index * 47; width: 772; height: 41; radius: 10; color: shell.panel; border.color: item.level === "critical" ? "#ef6e76" : item.level === "warning" ? shell.orange : shell.line
-                Rectangle { x: 12; y: 16; width: 9; height: 9; radius: 5; color: item.level === "critical" ? "#ef6e76" : item.level === "warning" ? shell.orange : shell.green }
-                Text { x: 31; y: 6; width: 540; elide: Text.ElideRight; text: item.text; color: shell.textColor; font.pixelSize: 10; font.bold: true }
-                Text { x: 31; y: 23; text: shell.host.timeText(item.createdAt) + "  |  " + item.source; color: shell.muted; font.pixelSize: 8 }
-                TouchButton { x: 644; y: 5; width: 116; height: 31; visible: !item.acknowledgedAt && (item.level === "warning" || item.level === "critical"); label: "BEST\u00c4TIGEN"; onClicked: shell.command("system", "acknowledge", item.id, { eventId: item.id }) }
+            model: [{x:0,title:"Verbindungen"},{x:257,title:"Camper"},{x:514,title:"Ford / SYNC"}]
+            delegate: Rectangle { x: modelData.x; y: 0; width: 248; height: 326; radius: 17; color: visual.panel; border.color: visual.border
+                Text { x: 14; y: 15; text: modelData.title; color: visual.text; font.pixelSize: 14; font.bold: true }
             }
         }
-        Text { visible: !shell.eventData.recent || !shell.eventData.recent.length; anchors.centerIn: parent; text: "Keine Meldungen"; color: shell.muted; font.pixelSize: 17 }
-    }
-
-    Item {
-        x: 0; y: 58; width: 800; height: 364; visible: shell.host.page === 4
-        Text { x: 14; y: 12; text: "SYSTEM & SERVICE"; color: shell.textColor; font.pixelSize: 20; font.bold: true }
-        Repeater {
-            model: shell.operations.devices || []
-            delegate: Rectangle {
-                property var device: modelData
-                x: 14 + (index % 3) * 260; y: 51 + Math.floor(index / 3) * 86; width: 246; height: 74; radius: 13; color: shell.panel; border.color: device.online ? shell.green : "#78404a"
-                LineIcon { x: 13; y: 16; width: 38; height: 38; kind: "service"; lineColor: device.online ? shell.green : "#ef6e76"; strokeWidth: 1.8 }
-                Text { x: 62; y: 13; width: 168; elide: Text.ElideRight; text: device.name; color: shell.textColor; font.pixelSize: 12; font.bold: true }
-                Text { x: 62; y: 35; text: device.online ? "ONLINE" : "NICHT VERBUNDEN"; color: device.online ? shell.green : "#ef6e76"; font.pixelSize: 9; font.bold: true }
-                Text { x: 62; y: 51; text: "zuletzt vor " + shell.host.ageText(device.lastSeen); color: shell.muted; font.pixelSize: 8 }
+        Column {
+            x: 14; y: 57; width: 220; spacing: 8
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
+                Rectangle { x: 12; y: 27; width: 8; height: 8; radius: 4; color: shell.api.connected ? visual.green : visual.red }
+                Text { x: 31; y: 14; text: "Node-RED"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                Text { x: 31; y: 35; text: shell.api.connected ? "Verbunden" : "Keine Verbindung"; color: shell.api.connected ? visual.green : visual.red; font.pixelSize: 8 }
+            }
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
+                V2Icon { x: 10; y: 20; width: 24; height: 24; kind: "network"; lineColor: visual.muted; strokeWidth: 1.8 }
+                Text { x: 43; y: 14; text: "Geräte"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                Text { x: 43; y: 35; text: shell.deviceCountText(); color: visual.muted; font.pixelSize: 8 }
             }
         }
-    }
-
-    Item {
-        x: 0; y: 58; width: 800; height: 364; visible: shell.host.page === 5
-        Rectangle {
-            x: 14; y: 10; width: 772; height: 76; radius: 15; color: shell.inverter.on ? (shell.dayMode ? "#eee8fb" : "#29203d") : shell.panel; border.color: shell.inverter.on ? "#ad8cf2" : shell.line
-            LineIcon { anchors.centerIn: parent; width: 56; height: 56; kind: "plug"; lineColor: shell.inverter.on ? "#ad8cf2" : shell.muted; strokeWidth: 2.2 }
-            Text { x: 22; y: 13; width: 180; text: shell.fmt(shell.inverter.outputPower, 0, " W"); color: shell.inverter.on ? "#ad8cf2" : shell.muted; font.pixelSize: 22; font.bold: true }
-            Text { x: 390; y: 42; width: 360; horizontalAlignment: Text.AlignRight; text: "MULTIPLUS COMPACT"; color: shell.inverter.on ? "#ad8cf2" : shell.textColor; font.pixelSize: 16; font.bold: true }
-            MouseArea { anchors.fill: parent; onClicked: shell.command("inverter", "set", !shell.inverter.on) }
-        }
-        Repeater {
-            model: Math.min(6, shell.powerPageChannels.length)
-            delegate: Rectangle {
-                property var channel: shell.powerPageChannels[index]
-                property string displayName: Number(channel.channel) === 6 ? "MaxxFan" : (channel.name || "12 V Kanal")
-                x: shell.powerTileX(index)
-                y: 98 + Math.floor(index / 3) * 121; width: 246; height: 107; radius: 15
-                color: channel.on ? (shell.dayMode ? "#dff4ed" : "#15342d") : shell.panel; border.color: channel.on ? shell.green : shell.line
-                LineIcon { x: 94; y: 12; width: 58; height: 58; kind: shell.powerIconKind(channel); lineColor: channel.on ? (Number(channel.channel) === 3 ? "#56b9ff" : shell.green) : shell.muted; strokeWidth: 2.1 }
-                Text { x: 82; y: 72; width: 148; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; text: displayName; color: channel.on ? shell.green : shell.textColor; font.pixelSize: 13; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: shell.command("starpower", "set", channel.on ? 0 : 1, { channel: channel.channel }) }
+        Column {
+            x: 271; y: 57; width: 220; spacing: 8
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
+                Text { x: 14; y: 14; text: "Schnellzugriff"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                Text { x: 14; y: 35; text: "4 Plätze"; color: visual.muted; font.pixelSize: 8 }
+                MouseArea { anchors.fill: parent; onClicked: shell.host.openSettings() }
+            }
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
+                Text { x: 14; y: 14; text: "Darstellung"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                Text { x: 14; y: 35; text: shell.dayMode ? "Hell" : "Dunkel"; color: visual.muted; font.pixelSize: 8 }
+                MouseArea { anchors.fill: parent; onClicked: shell.host.dayMode = !shell.host.dayMode }
+            }
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.selectedBlue; border.color: visual.blue
+                Text { anchors.centerIn: parent; text: "Einstellungen"; color: visual.blue; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: shell.host.openSettings() }
             }
         }
-        Rectangle {
-            visible: shell.host && shell.host.showExternalWifiTile
-            x: shell.powerTileX(shell.powerPageChannels.length)
-            y: 98 + Math.floor(shell.powerPageChannels.length / 3) * 121
-            width: 246; height: 107; radius: 15
-            color: shell.externalWifi.enabled ? (shell.dayMode ? "#dff1f8" : "#12303c") : shell.panel
-            border.color: shell.externalWifi.enabled ? shell.blue : shell.line
-            LineIcon { x: 94; y: 12; width: 58; height: 58; kind: "network"; lineColor: shell.externalWifi.enabled ? shell.blue : shell.muted; strokeWidth: 2.1 }
-            Text { x: 18; y: 72; width: 210; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: shell.externalWifi.ssid || "EXTERNES WLAN"; color: shell.externalWifi.enabled ? shell.blue : shell.textColor; font.pixelSize: 13; font.bold: true }
-            MouseArea { anchors.fill: parent; onClicked: shell.host.openExternalWifiSettings() }
+        Column {
+            x: 528; y: 57; width: 220; spacing: 8
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
+                Text { x: 14; y: 14; text: "Design V1"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                Text { x: 14; y: 35; text: "Klassische Oberfläche"; color: visual.muted; font.pixelSize: 8 }
+                MouseArea { anchors.fill: parent; onClicked: shell.host.setDesignVersion("v1") }
+            }
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
+                Text { x: 14; y: 14; text: "CamperControl"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                Text { x: 14; y: 35; text: "v3.11.0"; color: visual.muted; font.pixelSize: 8 }
+            }
+            Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
+                Text { anchors.centerIn: parent; text: "App schließen"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: shell.host.requestClose() }
+            }
         }
     }
 
     Rectangle {
-        visible: false
-        x: 0; y: 422; width: 800; height: 58; color: visual.header; border.color: shell.line
+        x: 17; y: 401; width: 766; height: 64; radius: 18; color: visual.panel; border.color: visual.border
         Repeater {
             model: [
-                { label: "HOME", icon: "home", page: 0 }, { label: "LICHT", icon: "light", page: 1 },
-                { label: "12 / 230", icon: "power", page: 5 }
+                {label:"Home",icon:"home"},{label:"Licht",icon:"light"},{label:"Klima",icon:"climate"},
+                {label:"Energie",icon:"energy"},{label:"Wasser",icon:"water"},{label:"System",icon:"settings"}
             ]
             delegate: Rectangle {
-                property bool selected: shell.host.page === modelData.page
-                x: index * 267; y: 0; width: index === 2 ? 266 : 267; height: 58
-                color: selected ? visual.selectedBlue : "transparent"; border.color: shell.line
-                Rectangle { x: 0; y: 0; width: parent.width; height: 3; color: selected ? shell.blue : "transparent" }
-                LineIcon { x: 18; y: 14; width: 30; height: 30; kind: modelData.icon; lineColor: selected ? shell.blue : shell.textColor; strokeWidth: 2 }
-                Text { x: 55; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: selected ? shell.blue : shell.textColor; font.pixelSize: 10; font.bold: true }
-                MouseArea { anchors.fill: parent; onClicked: shell.go(modelData.page) }
+                x: 5 + index * 126; y: 5; width: index === 5 ? 126 : 123; height: 54; radius: 13
+                color: shell.currentPage === index ? visual.selectedBlue : "transparent"
+                V2Icon { x: (parent.width - 21) / 2; y: 7; width: 21; height: 21; kind: modelData.icon; lineColor: shell.currentPage === index ? visual.blue : visual.muted; strokeWidth: 1.8 }
+                Text { x: 0; y: 34; width: parent.width; horizontalAlignment: Text.AlignHCenter; text: modelData.label; color: shell.currentPage === index ? visual.blue : visual.muted; font.pixelSize: 8; font.bold: true }
+                MouseArea { anchors.fill: parent; onClicked: shell.currentPage = index }
             }
         }
     }
+
+    Timer { interval: 1000; repeat: true; running: true; onTriggered: shell.now = new Date().getTime() }
 }

@@ -3,7 +3,7 @@
 PATH=/fs/rwdata/dev:$PATH
 
 FANCYNAME="CamperControl App + Ford Integration"
-VERSION="3.10.0"
+VERSION="3.11.0"
 AUTHOR="CamperControl"
 APP_MODNAME="CAMPER_CONTROL_QML"
 ROOT_MODNAME="CAMPER_CONTROL_STATUSBAR_ROOT"
@@ -117,7 +117,21 @@ if ! version_at_least "$MODS_TOOLS_VERSION" "$MIN_MODTOOLS_VERSION"; then displa
 if [ ! -f /fs/mp/etc/installed_mods.txt ] || ! grep -q "${DEPENDENCY}" /fs/mp/etc/installed_mods.txt; then displayMessage "Custom Apps Loader 2.3 not found. Install it first."; fi
 if [ ! -f "$APPS_JSON" ] || [ ! -f "$ROOT_TARGET" ] || [ ! -f "$STATUS_TARGET" ]; then displayMessage "Required Ford HMI files are missing. Installation aborted."; fi
 
-if [ ! -f "${APP_SOURCE}/Camper.qml" ] || [ ! -f "${APP_SOURCE}/CamperMain.qml" ] || [ ! -f "${APP_SOURCE}/ModernShell.qml" ] || [ ! -f "${APP_SOURCE}/Icon.png" ] || [ ! -f "${APP_SOURCE}/Icon_active.png" ] || [ ! -f "${APP_SOURCE}/Icon_activepressed.png" ] || [ ! -f "${APP_SOURCE}/VehicleLightsLeft.png" ] || [ ! -f "${APP_SOURCE}/VehicleLightsRight.png" ]; then
+if [ ! -f "${APP_SOURCE}/Camper.qml" ] \
+   || [ ! -f "${APP_SOURCE}/CamperMain.qml" ] \
+   || [ ! -f "${APP_SOURCE}/ModernShell.qml" ] \
+   || [ ! -f "${APP_SOURCE}/V2Icon.qml" ] \
+   || [ ! -f "${APP_SOURCE}/V2Gauge.qml" ] \
+   || [ ! -f "${APP_SOURCE}/V2LightsPage.qml" ] \
+   || [ ! -f "${APP_SOURCE}/V2EnergyPage.qml" ] \
+   || [ ! -f "${APP_SOURCE}/V2ClimatePage.qml" ] \
+   || [ ! -f "${APP_SOURCE}/Icon.png" ] \
+   || [ ! -f "${APP_SOURCE}/Icon_active.png" ] \
+   || [ ! -f "${APP_SOURCE}/Icon_activepressed.png" ] \
+   || [ ! -f "${APP_SOURCE}/VehicleLightsLeft.png" ] \
+   || [ ! -f "${APP_SOURCE}/VehicleLightsRight.png" ] \
+   || [ ! -f "${APP_SOURCE}/transit-line-symbol-dark.png" ] \
+   || [ ! -f "${APP_SOURCE}/transit-line-symbol-light.png" ]; then
     displayMessage "Camper app payload is incomplete. Installation aborted."
 fi
 if [ ! -f "$ROOT_PATCH" ] || [ ! -f "$STATUS_PATCH" ] || [ ! -f "$STATUS_TOUCH_UPDATE_SCRIPT" ] || [ ! -f "$CAMERA_UPDATE_SCRIPT" ] || [ ! -f "$ROOT_EXPECTED" ] || [ ! -f "$STATUS_EXPECTED" ] || [ ! -f "$RESTORE_SOURCE" ] || [ ! -f "${BRIDGE_SOURCE}/CamperState.qml" ] || [ ! -f "${BRIDGE_SOURCE}/qmldir" ]; then
@@ -187,7 +201,7 @@ elif [ "$ROOT_MODE" = "upgrade" ]; then
 fi
 
 if ! jq empty "$APPS_JSON" >/dev/null 2>&1; then displayMessage "apps.json is invalid. Installation aborted without changes."; fi
-jq '.apps = (((.apps // []) | map(select(.appId != "com.jan.camper" and .appId != null))) + [{"appId":"com.jan.camper","appName":"Camper","appFile":"Jan/Camper/Camper.qml","appIcon":"Jan/Camper/Icon","appVersion":"3.10.0","appHideTitle":true}])' "$APPS_JSON" > "$TMP_JSON"
+jq '.apps = (((.apps // []) | map(select(.appId != "com.jan.camper" and .appId != null))) + [{"appId":"com.jan.camper","appName":"Camper","appFile":"Jan/Camper/Camper.qml","appIcon":"Jan/Camper/Icon","appVersion":"3.11.0","appHideTitle":true}])' "$APPS_JSON" > "$TMP_JSON"
 if ! jq empty "$TMP_JSON" >/dev/null 2>&1; then rm -f "$TMP_JSON"; displayMessage "Unable to prepare apps.json. Installation aborted without changes."; fi
 
 instutility &
