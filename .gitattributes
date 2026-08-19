@@ -1,0 +1,7 @@
+*.sh text eol=lf
+*.qml text eol=lf
+*.json text eol=lf
+*.patch text eol=lf
+*.expected text eol=lf
+qmldir text eol=lf
+DONTINDX.MSA text eol=lf

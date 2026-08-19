@@ -24,6 +24,7 @@ CPU_VIEW = "--cpu" in sys.argv
 SENSORS_VIEW = "--sensors" in sys.argv
 DIMMER_VIEW = "--dimmer" in sys.argv
 WRAPPER_SMOKE_TEST = "--wrapper-smoke-test" in sys.argv
+DESIGN = next((arg.split("=", 1)[1].lower() for arg in sys.argv if arg.startswith("--design=")), "")
 SCREENSHOT = next((arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--screenshot=")), "")
 
 DEMO_API = r'''import QtQuick 2.6
@@ -251,8 +252,10 @@ def prepare_app(temp_root: Path) -> Path:
             text = text.replace("property bool rightView: false", "property bool rightView: true")
         if (SETTINGS_VIEW or WIFI_SETTINGS_VIEW) and qml_file.name == "CamperMain.qml":
             text = text.replace("property bool settingsOpen: false", "property bool settingsOpen: true")
+        if DESIGN in ("v1", "v2") and qml_file.name == "CamperMain.qml":
+            text = text.replace('property string designVersion: "v2"', 'property string designVersion: "' + DESIGN + '"')
         if WIFI_SETTINGS_VIEW and qml_file.name == "SettingsPanel.qml":
-            text = text.replace("id: scroller", "id: scroller\n        Component.onCompleted: contentY = 805")
+            text = text.replace("id: scroller", "id: scroller\n        Component.onCompleted: contentY = 905")
         if CPU_VIEW and qml_file.name == "TemperatureDetails.qml":
             text = text.replace("property int controlTab: 0", "property int controlTab: 1")
         if SENSORS_VIEW and qml_file.name == "TemperatureDetails.qml":
@@ -295,7 +298,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="camper-control-preview-") as directory:
         app_file = prepare_app(Path(directory))
         view = PreviewView()
-        view.setTitle("CamperControl v3.9.9 – lokale UI-Vorschau (keine Hardware)")
+        view.setTitle("CamperControl v3.10.0 – lokale UI-Vorschau (keine Hardware)")
         view.setResizeMode(QQuickView.SizeRootObjectToView)
         view.setSource(QUrl.fromLocalFile(str(app_file)))
         if view.status() == QQuickView.Error:

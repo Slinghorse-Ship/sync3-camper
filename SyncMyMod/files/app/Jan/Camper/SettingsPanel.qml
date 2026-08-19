@@ -13,7 +13,7 @@ Item {
             selectedWifiSsid = wifi.ssid
             selectedWifiService = serviceForSsid(wifi.ssid)
         }
-        scroller.contentY = 805
+        scroller.contentY = 905
     }
 
     function wifiName(entry) {
@@ -81,11 +81,29 @@ Item {
     Flickable {
         id: scroller
         x: 0; y: 54; width: 800; height: 368
-        contentWidth: width; contentHeight: 1768
+        contentWidth: width; contentHeight: 1868
         clip: true; boundsBehavior: Flickable.StopAtBounds
 
         Rectangle {
-            x: 14; y: 12; width: 772; height: 132; radius: 13
+            x: 14; y: 12; width: 772; height: 90; radius: 13
+            color: host.panelColor; border.color: host.designVersion === "v2" ? host.fordBlue : host.lineColor
+            Text { x: 16; y: 13; text: "OBERFLÄCHE"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
+            Text { x: 16; y: 36; text: "Design auswählen · wird sofort und dauerhaft gespeichert"; color: host.primaryText; font.pixelSize: 12; font.bold: true }
+            Text { x: 16; y: 58; text: "V1 bleibt vollständig erhalten, V2 nutzt die moderne Camper-Shell"; color: host.secondaryText; font.pixelSize: 9 }
+            TouchButton {
+                x: 566; y: 22; width: 86; height: 48
+                label: "V1"; fontSize: 12; active: host.designVersion === "v1"
+                onClicked: host.setDesignVersion("v1")
+            }
+            TouchButton {
+                x: 662; y: 22; width: 86; height: 48
+                label: "V2"; fontSize: 12; active: host.designVersion === "v2"
+                onClicked: host.setDesignVersion("v2")
+            }
+        }
+
+        Rectangle {
+            x: 14; y: 112; width: 772; height: 132; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "VERBINDUNG"; color: "#32d4a0"; font.pixelSize: 10; font.bold: true }
             Text { x: 16; y: 35; text: "Cerbo GX / Node-RED-Adresse"; color: host.primaryText; font.pixelSize: 13; font.bold: true }
@@ -110,7 +128,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 154; width: 772; height: 176; radius: 13
+            x: 14; y: 254; width: 772; height: 176; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "SCHNELLZUGRIFF · HOME"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Repeater {
@@ -128,7 +146,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 340; width: 772; height: 221; radius: 13
+            x: 14; y: 440; width: 772; height: 221; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "LICHT-ZUORDNUNG · STAR-POWER CH 7–12"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Repeater {
@@ -147,7 +165,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 571; width: 772; height: 230; radius: 13
+            x: 14; y: 671; width: 772; height: 230; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "NETZWERK · BLUETOOTH · CERBO GX"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Rectangle {
@@ -181,7 +199,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 811; width: 772; height: 300; radius: 13
+            x: 14; y: 911; width: 772; height: 300; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "EXTERNES WLAN · NETGEAR USB"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Text {
@@ -260,7 +278,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1121; width: 772; height: 262; radius: 13
+            x: 14; y: 1221; width: 772; height: 262; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "MELDUNGEN" + (host.eventData.unacknowledgedCount ? " · " + host.eventData.unacknowledgedCount + " OFFEN" : ""); color: "#f6a23c"; font.pixelSize: 10; font.bold: true }
             Text { visible: !host.eventData.recent || !host.eventData.recent.length; anchors.centerIn: parent; text: "Keine Meldungen"; color: host.secondaryText; font.pixelSize: 12 }
@@ -278,7 +296,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1393; width: 772; height: 300; radius: 13
+            x: 14; y: 1493; width: 772; height: 300; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "SERVICE & WARTUNG"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Repeater {
@@ -295,7 +313,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1703; width: 772; height: 52; radius: 13; color: host.panelColor; border.color: host.lineColor
+            x: 14; y: 1803; width: 772; height: 52; radius: 13; color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 10; width: 560; text: "Nur lokales Netz · keine Portweiterleitung ins Internet · Cerbo-Neustart erfordert zwei Betätigungen"; wrapMode: Text.WordWrap; color: host.secondaryText; font.pixelSize: 8 }
             TouchButton { x: 612; y: 7; width: 144; height: 38; label: "ALLES SPEICHERN"; fontSize: 8; active: true; onClicked: host.saveSettings() }
         }

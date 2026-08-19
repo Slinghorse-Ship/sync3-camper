@@ -25,6 +25,7 @@ Item {
     property bool quickSettingsOpen: false
     property string settingsUrl: baseUrl
     property bool showExternalWifiTile: true
+    property string designVersion: "v2"
     property var remoteConfig: ({})
     property var lightMapping: []
     property var quickAccessIds: ["switch:water_pump", "switch:starlink", "switch:dc_outlets_left", "light:inside_main"]
@@ -120,6 +121,8 @@ Item {
             if (saved.baseUrl) baseUrl = api.cleanBaseUrl(saved.baseUrl)
             if (saved.showExternalWifiTile !== undefined)
                 showExternalWifiTile = saved.showExternalWifiTile !== false
+            if (saved.designVersion === "v1" || saved.designVersion === "v2")
+                designVersion = saved.designVersion
             // Migriert einen alten HTTPS-Eintrag sofort in die kanonische
             // lokale HTTP-Adresse, statt ihn beim nächsten Start erneut zu lesen.
             if (saved.baseUrl && String(saved.baseUrl) !== baseUrl)
@@ -133,7 +136,11 @@ Item {
     function persistLocalSettings() {
         var xhr = new XMLHttpRequest()
         xhr.open("PUT", settingsFile, false)
-        xhr.send(JSON.stringify({ baseUrl: api.cleanBaseUrl(baseUrl), showExternalWifiTile: showExternalWifiTile }))
+        xhr.send(JSON.stringify({
+            baseUrl: api.cleanBaseUrl(baseUrl),
+            showExternalWifiTile: showExternalWifiTile,
+            designVersion: designVersion
+        }))
     }
 
     function writeLocalSettings() {
@@ -142,12 +149,28 @@ Item {
         var xhr = new XMLHttpRequest()
         try {
             xhr.open("PUT", settingsFile, false)
-            xhr.send(JSON.stringify({ baseUrl: baseUrl, showExternalWifiTile: showExternalWifiTile }))
+            xhr.send(JSON.stringify({
+                baseUrl: baseUrl,
+                showExternalWifiTile: showExternalWifiTile,
+                designVersion: designVersion
+            }))
         } catch (error) {
             api.errorText = "Einstellungen konnten nicht gespeichert werden"
         }
         settingsOpen = false
         api.reconnect()
+    }
+
+    function setDesignVersion(version) {
+        var selected = String(version || "").toLowerCase()
+        if (selected !== "v1" && selected !== "v2") return
+        designVersion = selected
+        page = 0
+        try {
+            persistLocalSettings()
+        } catch (error) {
+            api.errorText = "Designauswahl konnte nicht gespeichert werden"
+        }
     }
 
     function loadRemoteSettings(config) {
@@ -808,7 +831,7 @@ Item {
 
         ModernShell {
             x: 0; y: 0; width: 800; height: 480; z: 80
-            visible: root.page >= 0 && root.page <= 5 && !root.settingsOpen
+            visible: root.designVersion === "v2" && root.page >= 0 && root.page <= 5 && !root.settingsOpen
             host: root
             api: api
             snapshot: root.snapshot

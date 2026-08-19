@@ -1,4 +1,4 @@
-# CamperControl 3.9.9 für SYNC 3.4 / FMods
+# CamperControl 3.10.0 für SYNC 3.4 / FMods
 
 Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine native QNX-Binärdatei, keine Qt-WebSocket-Erweiterung und kein separates Desktop-QML-Projekt.
 
@@ -12,7 +12,9 @@ Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine n
 
 ## Installation
 
-Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.9.9 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
+Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.10.0 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
+
+Version 3.10.0 macht **Design V1** und **Design V2** unter `EINSTELLUNGEN → OBERFLÄCHE` auswählbar. Die Wahl wird sofort in der bestehenden lokalen Konfiguration gespeichert und nach einem Neustart wiederhergestellt. V1 bleibt als vollständige bisherige Bedienoberfläche erhalten; V2 nutzt die moderne Shell. Beide Designs teilen unverändert denselben `ApiClient`, denselben Live-Zustand und dieselben realen Cerbo-/Node-RED-Befehle.
 
 Version 3.9.3 ergänzt für alle dimmbaren Lichtkacheln eine getrennte Bedienung: Die Kachel schaltet direkt An/Aus, der schmale Dimm-Balken öffnet einen großen horizontalen Regler mit Voreinstellungen. Die Orion-XS-Umwandlungsanzeige, Einstellungen sowie Kamera- und Parkpilot-Vorrang bleiben vollständig enthalten.
 

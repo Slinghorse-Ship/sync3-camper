@@ -59,7 +59,7 @@ MouseArea {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: "QML-Ladefehler - Version 3.9.9"
+            text: "QML-Ladefehler - Version 3.10.0"
             color: "#aeb9c5"
             font.pixelSize: 13
         }
