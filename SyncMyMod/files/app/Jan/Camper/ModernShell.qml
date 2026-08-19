@@ -45,37 +45,17 @@ Item {
         if (valid(floor.humidity)) return Number(floor.humidity)
         return null
     }
-    function findLight(id) {
-        var items = lights.items || []
-        for (var i = 0; i < items.length; ++i) if (items[i].id === id) return items[i]
-        return ({ id:id, channel:0, on:false, dimming:0 })
-    }
-    function fallbackQuick() {
-        var defs = [
-            {id:"outside_front_white",name:"Tagfahrlicht",icon:"lightbar"},
-            {id:"outside_front_amber",name:"Warnlicht",icon:"warningbar"},
-            {id:"inside_main",name:"Innenlicht",icon:"bulb"},
-            {id:"outside_right",name:"Außen rechts",icon:"right-light"}
-        ]
-        var result = []
-        for (var i = 0; i < defs.length; ++i) {
-            var light = findLight(defs[i].id)
-            result.push({ name:defs[i].name, icon:defs[i].icon, active:light.on === true, available:Number(light.channel) > 0,
-                command:{ target:"starpower", action:"set", value:light.on === true ? 0 : 1, channel:Number(light.channel) } })
-        }
-        return result
-    }
     function quickItems() {
         var items = snapshot.ui && snapshot.ui.quickAccess
-        return items && items.length ? items.slice(0, 4) : fallbackQuick()
+        return items && items.length ? items.slice(0, 4) : []
     }
     function quickIcon(item) {
-        var kinds = { "bulb":"cabinLight", "right-light":"sideRight", "down-light":"rearLight", "left-light":"sideLeft", "lightbar":"lightBar", "warningbar":"warningBar", "highbeam":"highBeam", "outlet":"outlet", "pump":"pump", "satellite":"satellite", "fan":"fan", "plug":"plug", "heater":"flame", "battery":"battery" }
+        var kinds = { "bulb":"cabinLight", "right-light":"sideRight", "down-light":"rearLight", "left-light":"sideLeft", "lightbar":"lightBar", "warningbar":"warningBar", "highbeam":"highBeam", "outlet":"outlet", "pump":"pump", "satellite":"satellite", "fan":"fan", "plug":"plug", "heater":"flame", "battery":"battery", "home":"home" }
         return kinds[item.icon] || "energy"
     }
     function activateQuick(item) {
         var action = item && item.command
-        if (!item || item.available !== true || !action || !action.target) return
+        if (!item || item.available !== true || !action || !action.target || !action.action) return
         var extra = ({})
         for (var key in action) if (key !== "target" && key !== "action" && key !== "value") extra[key] = action[key]
         api.command(action.target, action.action, action.value, extra)
@@ -266,7 +246,7 @@ Item {
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { x: 14; y: 14; text: "CamperControl"; color: visual.text; font.pixelSize: 10; font.bold: true }
-                Text { x: 14; y: 35; text: "v3.11.1"; color: visual.muted; font.pixelSize: 8 }
+                Text { x: 14; y: 35; text: "v3.12.0"; color: visual.muted; font.pixelSize: 8 }
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { anchors.centerIn: parent; text: "App schließen"; color: visual.text; font.pixelSize: 10; font.bold: true }
@@ -290,6 +270,16 @@ Item {
                 MouseArea { anchors.fill: parent; onClicked: shell.currentPage = index }
             }
         }
+    }
+
+    V2EdgePanels {
+        id: edgePanels
+        anchors.fill: parent
+        z: 200
+        api: shell.api
+        favorites: shell.quickItems()
+        weather: shell.snapshot.weather || ({})
+        dayMode: shell.dayMode
     }
 
     Timer { interval: 1000; repeat: true; running: true; onTriggered: shell.now = new Date().getTime() }

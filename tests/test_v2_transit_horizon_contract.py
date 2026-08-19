@@ -170,8 +170,8 @@ checks = {
             "transit-line-symbol-light.png",
         )
     ),
-    "installer and app registration use release 3.11.1": (
-        'VERSION="3.11.1"' in installer and '"appVersion":"3.11.1"' in installer
+    "installer and app registration use release 3.12.0": (
+        'VERSION="3.12.0"' in installer and '"appVersion":"3.12.0"' in installer
     ),
 }
 

@@ -1,4 +1,4 @@
-# CamperControl 3.11.1 für SYNC 3.4 / FMods
+# CamperControl 3.12.0 für SYNC 3.4 / FMods
 
 Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine native QNX-Binärdatei, keine Qt-WebSocket-Erweiterung und kein separates Desktop-QML-Projekt.
 
@@ -12,7 +12,11 @@ Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine n
 
 ## Installation
 
-Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.11.1 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
+Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.12.0 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
+
+Version 3.12.0 ergänzt ausschließlich in Design V2 zwei unsichtbare Kanten-Gesten: von links öffnet sich der vom Backend aufgelöste Schnellzugriff, von rechts das Wetter. Beide Seiten verwenden denselben Overlay-Host, denselben Hintergrund-Scrim und denselben 48-Pixel-Schließen-Knopf; es gibt keinen sichtbaren Griff. Favoriten bleiben auch ohne Schaltfähigkeit sichtbar. Ein Befehl wird nur weitergereicht, wenn der Eintrag im Snapshot ausdrücklich `available: true` sowie ein vollständiges `command.target` und `command.action` enthält. Es werden keine lokalen Targets, Szenen oder Ersatzkacheln erzeugt.
+
+Das Wetterpanel liest ausschließlich `snapshot.weather`; die QML-App ruft weder DWD noch einen anderen HTTP-Dienst auf. Der derzeitige reine Darstellungsadapter erwartet `available`, `location`, `updatedAt`, `current` und `forecast`. Innerhalb von `current` beziehungsweise eines Prognoseeintrags werden `temperature`, `condition`, `icon`, `precipitationProbability` und `windSpeed` dargestellt; die Suffixvarianten `temperatureC`, `precipitationProbabilityPercent` und `windSpeedKmh` werden ebenfalls akzeptiert. Alle Felder sind fail-closed: Solange Node-RED diesen normalisierten Snapshot nicht bereitstellt, erscheint lediglich „Keine Wetterdaten vom Camper-Backend“. Änderungen müssen wie jeder SYNC-Snapshot die globale `sequence` erhöhen.
 
 Version 3.11.1 passt V2 an die reale 800 × 480-SYNC-Anzeige an: Der Tag-/Nacht-Hintergrund reicht ohne künstlichen dunklen Rundrahmen bis in alle vier Displayecken, das Transit-Liniensymbol ist transparent freigestellt und trägt den kompakten FORD-Grill. Der obere rechte Knopf schließt die App über den vorhandenen Ford-/FMods-Rückweg; Einstellungen bleiben über `System` erreichbar.
 

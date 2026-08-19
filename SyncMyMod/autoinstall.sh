@@ -3,7 +3,7 @@
 PATH=/fs/rwdata/dev:$PATH
 
 FANCYNAME="CamperControl App + Ford Integration"
-VERSION="3.11.1"
+VERSION="3.12.0"
 AUTHOR="CamperControl"
 APP_MODNAME="CAMPER_CONTROL_QML"
 ROOT_MODNAME="CAMPER_CONTROL_STATUSBAR_ROOT"
@@ -125,6 +125,7 @@ if [ ! -f "${APP_SOURCE}/Camper.qml" ] \
    || [ ! -f "${APP_SOURCE}/V2LightsPage.qml" ] \
    || [ ! -f "${APP_SOURCE}/V2EnergyPage.qml" ] \
    || [ ! -f "${APP_SOURCE}/V2ClimatePage.qml" ] \
+   || [ ! -f "${APP_SOURCE}/V2EdgePanels.qml" ] \
    || [ ! -f "${APP_SOURCE}/Icon.png" ] \
    || [ ! -f "${APP_SOURCE}/Icon_active.png" ] \
    || [ ! -f "${APP_SOURCE}/Icon_activepressed.png" ] \
@@ -201,7 +202,7 @@ elif [ "$ROOT_MODE" = "upgrade" ]; then
 fi
 
 if ! jq empty "$APPS_JSON" >/dev/null 2>&1; then displayMessage "apps.json is invalid. Installation aborted without changes."; fi
-jq '.apps = (((.apps // []) | map(select(.appId != "com.jan.camper" and .appId != null))) + [{"appId":"com.jan.camper","appName":"Camper","appFile":"Jan/Camper/Camper.qml","appIcon":"Jan/Camper/Icon","appVersion":"3.11.1","appHideTitle":true}])' "$APPS_JSON" > "$TMP_JSON"
+jq '.apps = (((.apps // []) | map(select(.appId != "com.jan.camper" and .appId != null))) + [{"appId":"com.jan.camper","appName":"Camper","appFile":"Jan/Camper/Camper.qml","appIcon":"Jan/Camper/Icon","appVersion":"3.12.0","appHideTitle":true}])' "$APPS_JSON" > "$TMP_JSON"
 if ! jq empty "$TMP_JSON" >/dev/null 2>&1; then rm -f "$TMP_JSON"; displayMessage "Unable to prepare apps.json. Installation aborted without changes."; fi
 
 instutility &

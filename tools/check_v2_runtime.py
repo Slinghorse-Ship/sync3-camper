@@ -66,8 +66,12 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     shell = root.findChild(QObject, "modernShell")
     lights_page = root.findChild(QObject, "v2LightsPage")
     energy_page = root.findChild(QObject, "v2EnergyPage")
+    edge_panels = root.findChild(QObject, "v2EdgePanelsHost")
+    left_edge = root.findChild(QObject, "v2LeftEdgeSwipe")
+    right_edge = root.findChild(QObject, "v2RightEdgeSwipe")
+    edge_close = root.findChild(QObject, "v2EdgePanelClose")
     api = root.findChild(QObject, "camperApiClient")
-    if None in (shell, lights_page, energy_page, api):
+    if None in (shell, lights_page, energy_page, edge_panels, left_edge, right_edge, edge_close, api):
         raise AssertionError("The V2 shell, pages or shared ApiClient were not instantiated")
     if view.width() != 800 or view.height() != 480:
         raise AssertionError("The GX Touch/SYNC reference viewport is not 800x480")
@@ -80,7 +84,51 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
         QTest.mouseClick(view, Qt.LeftButton, Qt.NoModifier, QPoint(x, y))
         QTest.qWait(100)
 
+    def swipe(start_x: int, end_x: int, y: int) -> None:
+        QTest.mousePress(view, Qt.LeftButton, Qt.NoModifier, QPoint(start_x, y))
+        QTest.qWait(30)
+        QTest.mouseMove(view, QPoint(end_x, y), 80)
+        QTest.mouseRelease(view, Qt.LeftButton, Qt.NoModifier, QPoint(end_x, y))
+        QTest.qWait(260)
+
     checks = 0
+
+    # Invisible physical-edge gestures share one mutually-exclusive host.
+    if int(left_edge.property("width")) < 44 or int(right_edge.property("width")) < 44:
+        raise AssertionError("V2 edge swipe targets are smaller than 44 pixels")
+    swipe(3, 92, 240)
+    if edge_panels.property("activePanel") != -1:
+        raise AssertionError("Left-edge swipe did not open backend favorites")
+    checks += 1
+
+    # The first resolved favorite uses its exact backend command.
+    pump_before = snapshot()["water"]["pump"]["on"]
+    click(165, 112)
+    if snapshot()["water"]["pump"]["on"] is pump_before:
+        raise AssertionError("Available favorite did not forward its backend command")
+    checks += 1
+
+    # An unavailable but visible favorite remains read-only.
+    api.setProperty("lastCommandResult", {})
+    click(165, 346)
+    command_result = api.property("lastCommandResult")
+    command_result = command_result.toVariant() if hasattr(command_result, "toVariant") else command_result
+    if command_result:
+        raise AssertionError("Unavailable favorite accepted a command")
+    checks += 1
+
+    if int(edge_close.property("width")) < 44 or int(edge_close.property("height")) < 44:
+        raise AssertionError("Shared edge-panel close target is smaller than 44 pixels")
+    click(302, 34)
+    if edge_panels.property("activePanel") != 0:
+        raise AssertionError("Shared edge-panel close control did not close favorites")
+    swipe(797, 708, 240)
+    if edge_panels.property("activePanel") != 1:
+        raise AssertionError("Right-edge swipe did not open snapshot weather")
+    click(498, 34)
+    if edge_panels.property("activePanel") != 0:
+        raise AssertionError("Shared edge-panel close control did not close weather")
+    checks += 1
 
     # Bottom navigation is touch-driven and opens the light page.
     click(209, 433)
