@@ -27,8 +27,7 @@ Item {
     property bool showExternalWifiTile: true
     property var remoteConfig: ({})
     property var lightMapping: []
-    property var quickAccessIds: ["outside_front_white", "outside_front_amber", "inside_main", "outside_right"]
-    property var quickAccessChoices: ["inside_main", "outside_left", "outside_right", "outside_rear", "outside_front_white", "outside_front_amber", "high_beam"]
+    property var quickAccessIds: ["switch:water_pump", "switch:starlink", "switch:dc_outlets_left", "light:inside_main"]
     property int page: 0
     property real detailScaleY: 366 / 424
     property double now: new Date().getTime()
@@ -160,19 +159,39 @@ Item {
             loaded.push({ id: light.id, name: light.name, channel: Number(light.channel), dimmable: light.dimmable, area: light.area, visible: light.visible })
         }
         lightMapping = loaded
-        var remoteQuick = remoteConfig.ui && remoteConfig.ui.quickAccessLightIds
-        if (remoteQuick && remoteQuick.length === 4) quickAccessIds = remoteQuick.slice(0)
+        var remoteQuick = remoteConfig.ui && remoteConfig.ui.quickAccessIds
+        if (remoteQuick && remoteQuick.length === 4) {
+            quickAccessIds = remoteQuick.slice(0)
+        } else {
+            var legacyQuick = remoteConfig.ui && remoteConfig.ui.quickAccessLightIds
+            if (legacyQuick && legacyQuick.length === 4) {
+                var migrated = []
+                for (var quickIndex = 0; quickIndex < legacyQuick.length; ++quickIndex)
+                    migrated.push(legacyQuick[quickIndex] === "high_beam" ? "switch:high_beam_manual" : "light:" + legacyQuick[quickIndex])
+                quickAccessIds = migrated
+            }
+        }
+    }
+
+    function quickAccessOptions() {
+        var options = snapshot.ui && snapshot.ui.quickAccessOptions
+        return options && options.length ? options : []
     }
 
     function quickAccessName(id) {
-        if (id === "high_beam") return "Fernlicht"
-        for (var i = 0; i < lightMapping.length; ++i) if (lightMapping[i].id === id) return lightMapping[i].name
+        var options = quickAccessOptions()
+        for (var i = 0; i < options.length; ++i) if (options[i].id === id) return options[i].group + " · " + options[i].name
         return id
     }
 
     function changeQuickAccess(index, direction) {
-        var current = quickAccessChoices.indexOf(quickAccessIds[index])
-        var wanted = quickAccessChoices[(current + direction + quickAccessChoices.length) % quickAccessChoices.length]
+        var options = quickAccessOptions()
+        if (!options.length) return
+        var choices = []
+        for (var optionIndex = 0; optionIndex < options.length; ++optionIndex) choices.push(options[optionIndex].id)
+        var current = choices.indexOf(quickAccessIds[index])
+        if (current < 0) current = 0
+        var wanted = choices[(current + direction + choices.length) % choices.length]
         var occupant = quickAccessIds.indexOf(wanted)
         var updated = quickAccessIds.slice(0)
         if (occupant >= 0 && occupant !== index) updated[occupant] = updated[index]
@@ -205,7 +224,7 @@ Item {
             var light = lightMapping[i]
             updated.push({ id: light.id, name: light.name, channel: Number(light.channel), dimmable: light.dimmable, area: light.area, visible: light.visible })
         }
-        api.command("settings", "patch", null, { patch: { lights: updated, ui: { quickAccessLightIds: quickAccessIds } } })
+        api.command("settings", "patch", null, { patch: { lights: updated, ui: { quickAccessIds: quickAccessIds } } })
     }
 
     function requestClose() {

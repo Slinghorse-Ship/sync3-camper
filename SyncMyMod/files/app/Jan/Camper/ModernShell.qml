@@ -32,7 +32,7 @@ Item {
     property var vehicle: snapshot.vehicle || ({})
     property var highBeam: vehicle.highBeam || ({})
     property var lights: snapshot.lights || ({})
-    property var quickAccessIds: ["outside_front_white", "outside_front_amber", "inside_main", "outside_right"]
+    property var quickAccessIds: ["switch:water_pump", "switch:starlink", "switch:dc_outlets_left", "light:inside_main"]
     property var operations: snapshot.operations || ({})
     property var commandData: operations.commands || ({})
     property var eventData: operations.events || ({})
@@ -95,13 +95,26 @@ Item {
         for (var i = 0; i < items.length; ++i) if (items[i].id === id) return items[i]
         return ({ id: id, name: id, channel: 0, on: false, dimming: 0, dimmable: false })
     }
-    function quickLights() {
-        var result = []
-        for (var i = 0; i < quickAccessIds.length; ++i) {
-            var id = quickAccessIds[i]
-            result.push(id === "high_beam" ? ({ id: "high_beam", name: "Fernlicht", channel: Number(highBeam.outputChannel || 3), on: highBeam.on === true, manualOn: highBeam.manualOn === true, dimmable: false }) : findLight(id))
+    function quickItems() {
+        var items = snapshot.ui && snapshot.ui.quickAccess
+        return items && items.length ? items : []
+    }
+    function quickIconKind(item) {
+        var kinds = {
+            "bulb": "cabinLight", "right-light": "workLightRight", "down-light": "rearLight",
+            "left-light": "workLightLeft", "lightbar": "lightBar", "warningbar": "warningBar",
+            "highbeam": "highBeam", "outlet": "outlet", "pump": "pump", "satellite": "satellite",
+            "fan": "fan", "plug": "plug", "heater": "climate", "battery": "battery", "home": "scenes"
         }
-        return result
+        return kinds[item.icon] || "power"
+    }
+    function activateQuick(item) {
+        var action = item && item.command
+        if (!item || item.available !== true || !action || !action.target) return
+        var extra = ({})
+        for (var key in action)
+            if (key !== "target" && key !== "action" && key !== "value") extra[key] = action[key]
+        command(action.target, action.action, action.value, extra)
     }
 
     Rectangle {
@@ -178,15 +191,17 @@ Item {
             x: 10; y: 236; width: 780; height: 116; radius: 15; color: shell.panel; border.color: shell.line
             Text { x: 16; y: 12; text: "SCHNELLZUGRIFF"; color: shell.muted; font.pixelSize: 9; font.bold: true }
             Repeater {
-                model: shell.quickLights()
+                model: shell.quickItems()
                 delegate: Rectangle {
-                    property var light: modelData
+                    property var quick: modelData
                     x: 14 + index * 190; y: 34; width: 180; height: 68; radius: 12
-                    color: light.on ? (shell.dayMode ? "#dff4ed" : "#15342d") : shell.inner
-                    border.color: light.on ? shell.green : shell.line
-                    LineIcon { x: 73; y: 5; width: 34; height: 34; kind: shell.lightIconKind(light); lineColor: light.on ? (light.id === "outside_front_amber" ? shell.orange : shell.green) : shell.muted; strokeWidth: 1.8 }
-                    Text { x: 10; y: 47; width: 160; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; text: shell.compactLightName(light); color: shell.textColor; font.pixelSize: 9; font.bold: true }
-                    MouseArea { anchors.fill: parent; onClicked: shell.command("starpower", "set", light.id === "high_beam" ? (light.manualOn ? 0 : 1) : (light.on ? 0 : 1), { channel: light.channel }) }
+                    opacity: quick.available === true ? 1.0 : 0.52
+                    color: quick.active ? (shell.dayMode ? "#dff4ed" : "#15342d") : shell.inner
+                    border.color: quick.active ? shell.green : shell.line
+                    LineIcon { x: 73; y: 3; width: 32; height: 32; kind: shell.quickIconKind(quick); lineColor: quick.active ? (quick.icon === "warningbar" ? shell.orange : shell.green) : shell.muted; strokeWidth: 1.8 }
+                    Text { x: 8; y: 39; width: 164; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: quick.name; color: shell.textColor; font.pixelSize: 9; font.bold: true }
+                    Text { x: 8; y: 54; width: 164; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: quick.status || ""; color: shell.muted; font.pixelSize: 7; font.bold: true }
+                    MouseArea { anchors.fill: parent; enabled: quick.available === true; onClicked: shell.activateQuick(quick) }
                 }
             }
         }
