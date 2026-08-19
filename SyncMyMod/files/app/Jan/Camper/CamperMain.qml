@@ -10,15 +10,15 @@ Item {
 
     property bool embeddedInGlobalHost: false
     property bool dayMode: AL2HMIBridge.globalSource.dayMode
-    property color backgroundTop: dayMode ? "#f4f5f6" : "#0c131a"
-    property color backgroundBottom: dayMode ? "#e5e8eb" : "#070b10"
-    property color headerColor: dayMode ? "#ffffff" : "#101820"
-    property color panelColor: dayMode ? "#ffffff" : "#171f28"
-    property color innerPanelColor: dayMode ? "#eef1f3" : "#111a22"
-    property color primaryText: dayMode ? "#20252a" : "#f4f8fb"
-    property color secondaryText: dayMode ? "#59636c" : "#91a1af"
-    property color lineColor: dayMode ? "#c8cdd2" : "#2b3946"
-    property color fordBlue: dayMode ? "#0067b9" : "#45c9fa"
+    property color backgroundTop: visual.backgroundTop
+    property color backgroundBottom: visual.backgroundBottom
+    property color headerColor: visual.header
+    property color panelColor: visual.panel
+    property color innerPanelColor: visual.inner
+    property color primaryText: visual.text
+    property color secondaryText: visual.muted
+    property color lineColor: visual.border
+    property color fordBlue: visual.blue
     property string settingsFile: "file:///fs/rwdata/fmods/mods/camper/config.json"
     property string baseUrl: "http://172.24.24.1:1880/camper/api/v2"
     property bool settingsOpen: false
@@ -59,6 +59,8 @@ Item {
     property var historyData: operations.history || ({})
     property var forecast: historyData.forecast || ({})
     property var latestCommand: commandData.recent && commandData.recent.length ? commandData.recent[0] : ({})
+
+    CamperStyle { id: visual; dayMode: root.dayMode }
 
     function formatted(value, digits, suffix) {
         if (value === null || value === undefined || value === "" || !isFinite(Number(value))) return "–"
@@ -370,8 +372,8 @@ Item {
         Rectangle {
             x: 0; y: 0; width: 800; height: 56
             color: root.headerColor; border.color: root.lineColor
-            Rectangle { x: 0; y: 54; width: 800; height: 2; color: "#32d4a0"; opacity: 0.34 }
-            Image { x: 6; y: 3; width: 50; height: 50; source: "Icon.png"; fillMode: Image.PreserveAspectFit; smooth: true }
+            Rectangle { x: 0; y: 54; width: 800; height: 2; color: root.fordBlue; opacity: 0.34 }
+            Image { x: 4; y: 3; width: 56; height: 50; source: "Icon.png"; fillMode: Image.PreserveAspectFit; smooth: true }
             Text { x: 62; y: 8; text: (system.name || "CAMPER").toUpperCase(); color: root.primaryText; font.pixelSize: 17; font.bold: true }
             Text {
                 x: 62; y: 30
@@ -798,7 +800,7 @@ Item {
         Rectangle {
             x: 0; y: 422; width: 800; height: 58; z: 120
             visible: true
-            color: root.dayMode ? "#f7f8f9" : "#0c141b"
+            color: root.headerColor
             border.color: root.lineColor
 
             Repeater {
@@ -811,7 +813,7 @@ Item {
                     y: 0
                     width: index === 2 ? 266 : 267
                     height: 58
-                    color: selected ? (root.dayMode ? "#dceff8" : "#102d3d") : "transparent"
+                    color: selected ? visual.selectedBlue : "transparent"
                     border.color: root.lineColor
 
                     Rectangle {

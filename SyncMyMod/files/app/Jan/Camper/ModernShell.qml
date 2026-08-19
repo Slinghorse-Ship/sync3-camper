@@ -36,15 +36,17 @@ Item {
     property var operations: snapshot.operations || ({})
     property var commandData: operations.commands || ({})
     property var eventData: operations.events || ({})
-    property color background: dayMode ? "#edf1f3" : "#070c10"
-    property color panel: dayMode ? "#ffffff" : "#111a21"
-    property color inner: dayMode ? "#f0f3f5" : "#0d151b"
-    property color textColor: dayMode ? "#172028" : "#f3f7f9"
-    property color muted: dayMode ? "#63707a" : "#84939e"
-    property color line: dayMode ? "#cbd3d8" : "#293842"
-    property color blue: dayMode ? "#0074bd" : "#36c3fa"
-    property color green: "#35d2a1"
-    property color orange: "#f6a23c"
+    property color background: visual.backgroundBottom
+    property color panel: visual.panel
+    property color inner: visual.inner
+    property color textColor: visual.text
+    property color muted: visual.muted
+    property color line: visual.border
+    property color blue: visual.blue
+    property color green: visual.green
+    property color orange: visual.orange
+
+    CamperStyle { id: visual; dayMode: shell.dayMode }
 
     function fmt(value, digits, suffix) {
         if (value === null || value === undefined || value === "" || !isFinite(Number(value))) return "-"
@@ -106,16 +108,16 @@ Item {
         anchors.fill: parent
         color: shell.background
         gradient: Gradient {
-            GradientStop { position: 0.0; color: shell.dayMode ? "#f7f9fa" : "#081016" }
-            GradientStop { position: 1.0; color: shell.dayMode ? "#e5eaed" : "#05090c" }
+            GradientStop { position: 0.0; color: visual.backgroundTop }
+            GradientStop { position: 1.0; color: visual.backgroundBottom }
         }
     }
 
     Rectangle {
         x: 0; y: 0; width: 800; height: 58
-        color: shell.dayMode ? "#ffffff" : "#091016"
+        color: visual.header
         border.color: shell.line
-        Image { x: 8; y: 4; width: 50; height: 50; source: "Icon.png"; fillMode: Image.PreserveAspectFit; smooth: true }
+        Image { x: 5; y: 4; width: 56; height: 50; source: "Icon.png"; fillMode: Image.PreserveAspectFit; smooth: true }
         Text { x: 65; y: 10; text: (shell.system.name || "CAMPER").toUpperCase(); color: shell.textColor; font.pixelSize: 17; font.bold: true }
         Text { x: 65; y: 31; text: "\u00b7 " + ["HOME", "LICHT", "SZENEN", "MELDUNGEN", "SERVICE", "12 / 230 V"][shell.host.page]; color: shell.blue; font.pixelSize: 11; font.bold: true }
 
@@ -140,10 +142,10 @@ Item {
 
     Item {
         x: 0; y: 58; width: 800; height: 364; visible: shell.host.page === 0
-        ModernTile { x: 10; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "battery"; caption: shell.battery.name || "BATTERIE"; value: shell.fmt(shell.battery.soc, 0, " %"); detail: "Starter " + shell.fmt(shell.battery.starterVoltage, 1, " V"); active: Number(shell.battery.soc || 0) > 0; accentColor: shell.green; onClicked: shell.go(8) }
-        ModernTile { x: 207; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "solar"; caption: "SOLAR GESAMT"; value: shell.fmt(shell.energy.totalSolarPower, 0, " W"); detail: (shell.solar.chargers || []).length + " MPPT · INDEVOLT SOLAR " + (shell.indevolt.online ? "ONLINE" : "OFFLINE"); active: Number(shell.energy.totalSolarPower || 0) > 0; accentColor: "#f4c94c"; onClicked: shell.go(7) }
+        ModernTile { x: 10; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "battery"; caption: shell.battery.name || "BATTERIE"; value: shell.fmt(shell.battery.soc, 0, " %"); detail: "Starter " + shell.fmt(shell.battery.starterVoltage, 1, " V"); active: Number(shell.battery.soc || 0) > 0; accentColor: shell.blue; onClicked: shell.go(8) }
+        ModernTile { x: 207; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "solar"; caption: "SOLAR GESAMT"; value: shell.fmt(shell.energy.totalSolarPower, 0, " W"); detail: (shell.solar.chargers || []).length + " MPPT · INDEVOLT SOLAR " + (shell.indevolt.online ? "ONLINE" : "OFFLINE"); active: Number(shell.energy.totalSolarPower || 0) > 0; accentColor: shell.blue; onClicked: shell.go(7) }
         ModernTile { x: 404; y: 10; width: 188; height: 88; dayMode: shell.dayMode; icon: "water"; caption: shell.fresh.name || "FRISCHWASSER"; value: shell.fmt(shell.fresh.level, 0, " %"); detail: shell.fmt(shell.fresh.remainingLitres, 0, " Liter"); active: Number(shell.fresh.level || 0) > 0; accentColor: shell.blue }
-        ModernTile { x: 601; y: 10; width: 189; height: 88; dayMode: shell.dayMode; icon: "climate"; caption: "INNENRAUM"; value: shell.fmt(shell.climate.roomTemperature, 1, " \u00b0C"); detail: shell.temperatureCount() > 1 ? shell.temperatureCount() + " MESSWERTE" : "TEMPERATUR"; active: shell.temperatureCount() > 1; accentColor: shell.orange; onClicked: if (shell.temperatureCount() > 1) shell.go(10) }
+        ModernTile { x: 601; y: 10; width: 189; height: 88; dayMode: shell.dayMode; icon: "climate"; caption: "INNENRAUM"; value: shell.fmt(shell.climate.roomTemperature, 1, " \u00b0C"); detail: shell.temperatureCount() > 1 ? shell.temperatureCount() + " MESSWERTE" : "TEMPERATUR"; active: shell.temperatureCount() > 1; accentColor: shell.blue; onClicked: if (shell.temperatureCount() > 1) shell.go(10) }
 
         Rectangle {
             x: 10; y: 108; width: 384; height: 118; radius: 15; color: shell.panel; border.color: shell.heater.on ? shell.orange : shell.line
@@ -292,7 +294,7 @@ Item {
 
     Rectangle {
         visible: false
-        x: 0; y: 422; width: 800; height: 58; color: shell.dayMode ? "#ffffff" : "#091016"; border.color: shell.line
+        x: 0; y: 422; width: 800; height: 58; color: visual.header; border.color: shell.line
         Repeater {
             model: [
                 { label: "HOME", icon: "home", page: 0 }, { label: "LICHT", icon: "light", page: 1 },
@@ -301,7 +303,7 @@ Item {
             delegate: Rectangle {
                 property bool selected: shell.host.page === modelData.page
                 x: index * 267; y: 0; width: index === 2 ? 266 : 267; height: 58
-                color: selected ? (shell.dayMode ? "#e0f2fa" : "#102a38") : "transparent"; border.color: shell.line
+                color: selected ? visual.selectedBlue : "transparent"; border.color: shell.line
                 Rectangle { x: 0; y: 0; width: parent.width; height: 3; color: selected ? shell.blue : "transparent" }
                 LineIcon { x: 18; y: 14; width: 30; height: 30; kind: modelData.icon; lineColor: selected ? shell.blue : shell.textColor; strokeWidth: 2 }
                 Text { x: 55; anchors.verticalCenter: parent.verticalCenter; text: modelData.label; color: selected ? shell.blue : shell.textColor; font.pixelSize: 10; font.bold: true }

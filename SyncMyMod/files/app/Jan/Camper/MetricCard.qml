@@ -9,15 +9,17 @@ Rectangle {
     property string caption: "WERT"
     property string value: "–"
     property string detail: ""
-    property color valueColor: dayMode ? "#20252a" : "#f4f8fb"
+    property color valueColor: visual.text
     property color accentColor: valueColor
 
+    CamperStyle { id: visual; dayMode: root.dayMode }
+
     radius: 14
-    color: dayMode ? "#ffffff" : "#151f28"
-    border.color: dayMode ? "#c8cdd2" : "#2a3a47"
+    color: visual.panel
+    border.color: visual.border
 
     Rectangle { x: 0; y: 13; width: 4; height: parent.height - 26; radius: 2; color: root.accentColor }
-    Rectangle { x: 13; y: 1; width: parent.width - 26; height: 1; color: dayMode ? "#aab2b9" : "#526270"; opacity: 0.24 }
+    Rectangle { x: 13; y: 1; width: parent.width - 26; height: 1; color: visual.muted; opacity: 0.24 }
 
     Text {
         x: 12
@@ -43,7 +45,7 @@ Rectangle {
         width: parent.width - 24
         elide: Text.ElideRight
         text: root.detail
-        color: root.dayMode ? "#59636c" : "#91a1af"
+        color: visual.muted
         font.pixelSize: 9
     }
 }

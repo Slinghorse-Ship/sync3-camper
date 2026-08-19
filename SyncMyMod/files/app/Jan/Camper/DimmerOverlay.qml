@@ -13,11 +13,13 @@ Item {
     property int level: 0
     property int initialLevel: 0
     property bool dayMode: false
-    property color accentColor: "#31c9f4"
-    property color textColor: dayMode ? "#172028" : "#f4f8fb"
-    property color mutedColor: dayMode ? "#64717b" : "#91a1af"
-    property color sheetColor: dayMode ? "#ffffff" : "#08131c"
-    property color innerColor: dayMode ? "#edf2f5" : "#142331"
+    property color accentColor: visual.blue
+    property color textColor: visual.text
+    property color mutedColor: visual.muted
+    property color sheetColor: visual.panel
+    property color innerColor: visual.inner
+
+    CamperStyle { id: visual; dayMode: overlay.dayMode }
 
     signal toggleRequested(int channel, bool enabled)
     signal dimRequested(int channel, int value)

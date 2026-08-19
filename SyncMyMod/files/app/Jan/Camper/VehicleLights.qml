@@ -8,10 +8,12 @@ Item {
     property var highBeam: ({})
     property bool dayMode: false
     property bool rightView: false
-    property color primaryText: dayMode ? "#20252a" : "#f4f8fb"
-    property color secondaryText: dayMode ? "#59636c" : "#91a1af"
-    property color panelColor: dayMode ? "#ffffff" : "#151f28"
-    property color borderColor: dayMode ? "#c8cdd2" : "#2b3946"
+    property color primaryText: visual.text
+    property color secondaryText: visual.muted
+    property color panelColor: visual.panel
+    property color borderColor: visual.border
+
+    CamperStyle { id: visual; dayMode: view.dayMode }
 
     signal setRequested(int channel, bool enabled)
     signal dimRequested(int channel, int value)

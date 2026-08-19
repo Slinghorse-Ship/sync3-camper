@@ -14,12 +14,14 @@ Item {
     signal climateAutomationPatchRequested(var patch)
     signal temperatureSensorPatchRequested(var patch)
 
-    property color panelColor: dayMode ? "#ffffff" : "#111a21"
-    property color innerColor: dayMode ? "#f0f3f5" : "#0d151b"
-    property color textColor: dayMode ? "#172028" : "#f3f7f9"
-    property color mutedColor: dayMode ? "#63707a" : "#84939e"
-    property color lineColor: dayMode ? "#cbd3d8" : "#293842"
-    property color orangeColor: "#f6a23c"
+    property color panelColor: visual.panel
+    property color innerColor: visual.inner
+    property color textColor: visual.text
+    property color mutedColor: visual.muted
+    property color lineColor: visual.border
+    property color orangeColor: visual.orange
+
+    CamperStyle { id: visual; dayMode: view.dayMode }
 
     function valid(value) { return value !== null && value !== undefined && value !== "" && isFinite(Number(value)) }
     function fmt(value) { return valid(value) ? Number(value).toFixed(1) + " °C" : "–" }

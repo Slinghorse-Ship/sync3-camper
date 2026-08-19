@@ -31,9 +31,16 @@ Canvas {
         if (kind === "home") {
             line(c, [[w*.12,h*.49],[x,h*.15],[w*.88,h*.49]])
             line(c, [[w*.23,h*.43],[w*.23,h*.86],[w*.43,h*.86],[w*.43,h*.62],[w*.64,h*.62],[w*.64,h*.86],[w*.77,h*.86],[w*.77,h*.43]])
-        } else if (kind === "light" || kind === "solar") {
-            c.beginPath(); c.arc(x,y,w*.19,0,Math.PI*2); c.stroke()
-            for (var a=0;a<8;a++){var q=a*Math.PI/4;line(c,[[x+Math.cos(q)*w*.29,y+Math.sin(q)*h*.29],[x+Math.cos(q)*w*.43,y+Math.sin(q)*h*.43]])}
+        } else if (kind === "light") {
+            c.beginPath(); c.moveTo(w*.31,h*.43); c.bezierCurveTo(w*.31,h*.22,w*.69,h*.22,w*.69,h*.43); c.bezierCurveTo(w*.69,h*.57,w*.60,h*.61,w*.59,h*.70); c.lineTo(w*.41,h*.70); c.bezierCurveTo(w*.40,h*.61,w*.31,h*.57,w*.31,h*.43); c.stroke()
+            line(c,[[w*.39,h*.76],[w*.61,h*.76]]); line(c,[[w*.42,h*.83],[w*.58,h*.83]])
+            line(c,[[x,h*.06],[x,h*.17]]); line(c,[[w*.17,h*.18],[w*.25,h*.27]]); line(c,[[w*.83,h*.18],[w*.75,h*.27]]); line(c,[[w*.11,h*.45],[w*.22,h*.45]]); line(c,[[w*.89,h*.45],[w*.78,h*.45]])
+        } else if (kind === "solar") {
+            c.beginPath(); c.arc(w*.28,h*.27,w*.10,0,Math.PI*2); c.stroke()
+            for (var a=0;a<8;a++){var q=a*Math.PI/4;line(c,[[w*.28+Math.cos(q)*w*.15,h*.27+Math.sin(q)*h*.15],[w*.28+Math.cos(q)*w*.21,h*.27+Math.sin(q)*h*.21]])}
+            c.beginPath(); c.moveTo(w*.29,h*.47); c.lineTo(w*.79,h*.47); c.lineTo(w*.89,h*.82); c.lineTo(w*.20,h*.82); c.closePath(); c.stroke()
+            line(c,[[w*.37,h*.47],[w*.34,h*.82]]); line(c,[[w*.53,h*.47],[w*.54,h*.82]]); line(c,[[w*.69,h*.47],[w*.74,h*.82]])
+            line(c,[[w*.25,h*.64],[w*.84,h*.64]])
         } else if (kind === "cabinLight") {
             // Flat interior ceiling light, not a generic sun/bulb.
             c.beginPath(); c.moveTo(w*.2,h*.42); c.quadraticCurveTo(x,h*.25,w*.8,h*.42); c.lineTo(w*.72,h*.68); c.quadraticCurveTo(x,h*.78,w*.28,h*.68); c.closePath(); c.stroke()
@@ -100,7 +107,7 @@ Canvas {
             c.beginPath(); c.moveTo(x,h*.08); c.bezierCurveTo(w*.78,h*.43,w*.78,h*.68,x,h*.86); c.bezierCurveTo(w*.22,h*.68,w*.22,h*.43,x,h*.08); c.stroke()
         } else if (kind === "climate") {
             c.beginPath(); c.arc(w*.42,h*.72,w*.16,0,Math.PI*2); c.stroke(); c.strokeRect(w*.36,h*.14,w*.12,h*.55)
-            line(c,[[w*.42,h*.3],[w*.42,h*.68]]); line(c,[[w*.62,h*.3],[w*.82,h*.3],[w*.72,h*.19],[w*.82,h*.3],[w*.72,h*.41]])
+            line(c,[[w*.42,h*.3],[w*.42,h*.68]]); line(c,[[w*.61,h*.28],[w*.72,h*.28]]); line(c,[[w*.61,h*.41],[w*.68,h*.41]]); line(c,[[w*.61,h*.54],[w*.72,h*.54]])
         } else if (kind === "fan") {
             c.beginPath(); c.arc(x,y,w*.08,0,Math.PI*2); c.stroke()
             for(var f=0;f<3;f++){var t=f*Math.PI*2/3;c.beginPath();c.moveTo(x+Math.cos(t)*w*.1,y+Math.sin(t)*h*.1);c.quadraticCurveTo(x+Math.cos(t+.45)*w*.43,y+Math.sin(t+.45)*h*.43,x+Math.cos(t+1.3)*w*.16,y+Math.sin(t+1.3)*h*.16);c.stroke()}

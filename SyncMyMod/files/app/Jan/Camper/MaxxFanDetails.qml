@@ -8,13 +8,15 @@ Item {
     signal backRequested()
     signal commandRequested(string action, var value)
 
-    property color panelColor: dayMode ? "#ffffff" : "#111a21"
-    property color innerColor: dayMode ? "#f0f3f5" : "#0d151b"
-    property color textColor: dayMode ? "#172028" : "#f3f7f9"
-    property color mutedColor: dayMode ? "#63707a" : "#84939e"
-    property color lineColor: dayMode ? "#cbd3d8" : "#293842"
-    property color blueColor: dayMode ? "#0074bd" : "#36c3fa"
-    property color greenColor: "#35d2a1"
+    property color panelColor: visual.panel
+    property color innerColor: visual.inner
+    property color textColor: visual.text
+    property color mutedColor: visual.muted
+    property color lineColor: visual.border
+    property color blueColor: visual.blue
+    property color greenColor: visual.green
+
+    CamperStyle { id: visual; dayMode: view.dayMode }
 
     function fmt(value, digits, suffix) {
         if (value === null || value === undefined || value === "" || !isFinite(Number(value))) return "–"
