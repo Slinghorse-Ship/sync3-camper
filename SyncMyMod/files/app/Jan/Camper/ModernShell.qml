@@ -99,12 +99,10 @@ Item {
     }
 
     Rectangle {
-        anchors.fill: parent
-        radius: 25; color: "#030609"; border.color: shell.dayMode ? "#c8d1d6" : "#22313d"
-    }
-    Rectangle {
         id: screen
-        x: 7; y: 7; width: 786; height: 466; radius: 19; clip: true
+        anchors.fill: parent
+        radius: 0
+        clip: true
         gradient: Gradient {
             GradientStop { position: 0.0; color: shell.dayMode ? "#f8fafb" : "#0d1722" }
             GradientStop { position: 1.0; color: shell.dayMode ? "#edf2f4" : "#080c12" }
@@ -113,7 +111,7 @@ Item {
 
     Item {
         x: 7; y: 7; width: 786; height: 50
-        Image { x: 14; y: 7; width: 55; height: 35; source: shell.dayMode ? "transit-line-symbol-light.png" : "transit-line-symbol-dark.png"; fillMode: Image.PreserveAspectFit; smooth: true }
+        Image { x: 10; y: 5; width: 63; height: 40; source: shell.dayMode ? "transit-line-symbol-light.png" : "transit-line-symbol-dark.png"; fillMode: Image.PreserveAspectFit; smooth: true }
         Text { x: 80; y: 13; width: 385; text: shell.title(); color: visual.text; font.pixelSize: 19; font.bold: true }
         Rectangle {
             x: 602; y: 10; width: 76; height: 30; radius: 15
@@ -125,9 +123,12 @@ Item {
             V2Icon { anchors.centerIn: parent; width: 20; height: 20; kind: "sunMoon"; lineColor: visual.text; strokeWidth: 1.8 }
             MouseArea { anchors.fill: parent; onClicked: shell.host.dayMode = !shell.host.dayMode }
         }
-        Rectangle { x: 734; y: 6; width: 38; height: 38; radius: 12; color: visual.inner
-            V2Icon { anchors.centerIn: parent; width: 20; height: 20; kind: "settings"; lineColor: visual.text; strokeWidth: 1.8 }
-            MouseArea { anchors.fill: parent; onClicked: shell.currentPage = 5 }
+        Rectangle { x: 741; y: 2; width: 42; height: 42; radius: 12
+            color: closeArea.pressed ? (shell.dayMode ? "#f4d8da" : "#49242b") : visual.inner
+            border.color: shell.dayMode ? "#d75b64" : "#e47780"
+            border.width: 1
+            V2Icon { anchors.centerIn: parent; width: 21; height: 21; kind: "close"; lineColor: visual.red; strokeWidth: 2.0 }
+            MouseArea { id: closeArea; anchors.fill: parent; onClicked: shell.host.requestClose() }
         }
         Rectangle { x: 0; y: 49; width: 786; height: 1; color: visual.border; opacity: .55 }
     }
@@ -265,7 +266,7 @@ Item {
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { x: 14; y: 14; text: "CamperControl"; color: visual.text; font.pixelSize: 10; font.bold: true }
-                Text { x: 14; y: 35; text: "v3.11.0"; color: visual.muted; font.pixelSize: 8 }
+                Text { x: 14; y: 35; text: "v3.11.1"; color: visual.muted; font.pixelSize: 8 }
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { anchors.centerIn: parent; text: "App schließen"; color: visual.text; font.pixelSize: 10; font.bold: true }

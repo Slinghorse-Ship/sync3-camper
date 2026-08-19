@@ -3,6 +3,8 @@
 import hashlib
 from pathlib import Path
 
+from PIL import Image
+
 
 ROOT = Path(__file__).resolve().parents[1]
 QML = ROOT / "SyncMyMod" / "files" / "app" / "Jan" / "Camper"
@@ -18,6 +20,17 @@ installer = (ROOT / "SyncMyMod" / "autoinstall.sh").read_text(encoding="utf-8")
 
 def digest(name: str) -> str:
     return hashlib.sha256((QML / name).read_bytes()).hexdigest()
+
+
+def transparent_corners(name: str) -> bool:
+    image = Image.open(QML / name).convert("RGBA")
+    corners = (
+        image.getpixel((0, 0)),
+        image.getpixel((image.width - 1, 0)),
+        image.getpixel((0, image.height - 1)),
+        image.getpixel((image.width - 1, image.height - 1)),
+    )
+    return all(pixel[3] == 0 for pixel in corners)
 
 
 native_sources = "\n".join((shell, lights, energy, climate, icon))
@@ -121,10 +134,26 @@ checks = {
             'api.command("maxxfan",',
         )
     ),
-    "Transit line symbol dark asset matches prototype": digest("transit-line-symbol-dark.png")
-    == "4aa46e7fc2153c29fef645c7e15f3798c2ee057362808ec1b0e190215b3973ef",
-    "Transit line symbol light asset matches prototype": digest("transit-line-symbol-light.png")
-    == "0acab7dfc369153214694c7d808975c3b334fb8599190188229d20943178ad9d",
+    "V2 background fills the complete 800 by 480 viewport": (
+        "anchors.fill: parent" in shell
+        and "radius: 0" in shell
+        and 'radius: 25; color: "#030609"' not in shell
+    ),
+    "top-right V2 control closes through the shared host path": (
+        'kind: "close"' in shell
+        and "onClicked: shell.host.requestClose()" in shell
+        and 'kind: "settings"' not in shell
+    ),
+    "Transit line symbol dark asset is the transparent FORD-grille build": (
+        digest("transit-line-symbol-dark.png")
+        == "f54f528af869c6f3cc2dec1a7b90ae730b6df1d431f67aeb55328ba1fd6aa605"
+        and transparent_corners("transit-line-symbol-dark.png")
+    ),
+    "Transit line symbol light asset is the transparent FORD-grille build": (
+        digest("transit-line-symbol-light.png")
+        == "2b67063319cdb66767cca2229996b9e6161a849eddd6b0941fb5f984cf1a594f"
+        and transparent_corners("transit-line-symbol-light.png")
+    ),
     "driver photo matches prototype": digest("VehicleLightsLeft.png")
     == "fea43248c03588cb57d65da00788f429022b819c8e440731ea02136b33123dfe",
     "passenger photo matches prototype": digest("VehicleLightsRight.png")
@@ -141,8 +170,8 @@ checks = {
             "transit-line-symbol-light.png",
         )
     ),
-    "installer and app registration use release 3.11.0": (
-        'VERSION="3.11.0"' in installer and '"appVersion":"3.11.0"' in installer
+    "installer and app registration use release 3.11.1": (
+        'VERSION="3.11.1"' in installer and '"appVersion":"3.11.1"' in installer
     ),
 }
 

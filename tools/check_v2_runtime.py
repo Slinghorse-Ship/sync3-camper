@@ -41,6 +41,28 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     view.show()
     QTest.qWait(250)
 
+    def corner_colors():
+        image = view.grabWindow()
+        if image.isNull():
+            raise AssertionError("V2 viewport could not be captured")
+        return [
+            image.pixelColor(0, 0),
+            image.pixelColor(799, 0),
+            image.pixelColor(0, 479),
+            image.pixelColor(799, 479),
+        ]
+
+    night_corners = corner_colors()
+    if any(color.alpha() != 255 or max(color.red(), color.green(), color.blue()) >= 50 for color in night_corners):
+        raise AssertionError("Night V2 background does not fill all four viewport corners")
+    root.setProperty("dayMode", True)
+    QTest.qWait(80)
+    day_corners = corner_colors()
+    if any(color.alpha() != 255 or min(color.red(), color.green(), color.blue()) <= 220 for color in day_corners):
+        raise AssertionError("Day V2 background does not fill all four viewport corners")
+    root.setProperty("dayMode", False)
+    QTest.qWait(80)
+
     shell = root.findChild(QObject, "modernShell")
     lights_page = root.findChild(QObject, "v2LightsPage")
     energy_page = root.findChild(QObject, "v2EnergyPage")
@@ -165,6 +187,24 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     click(592, 228)
     if snapshot()["water"]["pump"]["on"] is pump_before:
         raise AssertionError("Water-pump card did not update shared state")
+    checks += 1
+
+    # Settings remain reachable through System after the redundant header
+    # settings icon becomes the always-visible close control.
+    click(718, 433)
+    if shell.property("currentPage") != 5:
+        raise AssertionError("System navigation did not remain reachable")
+    checks += 1
+
+    close_count = {"value": 0}
+
+    def on_close_requested():
+        close_count["value"] += 1
+
+    root.closeRequested.connect(on_close_requested)
+    click(769, 30)
+    if close_count["value"] != 1:
+        raise AssertionError("Top-right V2 close control did not emit exactly one close request")
     checks += 1
 
     view.close()
