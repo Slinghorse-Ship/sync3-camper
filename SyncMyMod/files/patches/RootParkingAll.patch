@@ -1,0 +1,17 @@
+--- fs/mp/fordhmi/qml/Root.qml
++++ fs/mp/fordhmi/qml/Root.qml
+@@ -407,12 +407,13 @@
+         visible: active
+                  && !ViewController.qrvc
+                  && viewContainer.fullScreenViewActive === 0
+                  && !root.fullScreenPopupActive
+-                 && !(ViewManager.activePopup
+-                      && ViewManager.activePopup.isOverlay
+-                      && !ViewManager.activePopup.hiding)
++                 && !root.hasActivePopup
++                 && !ViewController.transparentWindowPopupShown
++                 && !root.fullScreenTransparentPopupStacked
++                 && !(ViewManager.activeViewItem && ViewManager.activeViewItem.transparentWindow)
+         source: active
+                 ? "file:///fs/mp/fordhmi/qml/hmicustomapps/apps/Jan/Camper/Camper.qml"
+                 : ""

@@ -1,0 +1,21 @@
+--- fs/mp/fordhmi/qml/Root.qml
++++ fs/mp/fordhmi/qml/Root.qml
+@@ -405,6 +405,17 @@
+         z: 10000
+         active: CamperBridge.CamperState.camperOpen
+-        visible: active
++        // Kamera hat Vorrang. Der Loader bleibt aktiv und behält seinen Zustand,
++        // ist während Rückfahr-/Frontkamera aber unsichtbar und nicht bedienbar.
++        // qrvc is only a short transition signal on some SYNC builds. The
++        // full-screen counters remain active for the complete camera view.
++        visible: active
++                 && !ViewController.qrvc
++                 && viewContainer.fullScreenViewActive === 0
++                 && !root.fullScreenPopupActive
++                 && !root.hasActivePopup
++                 && !ViewController.transparentWindowPopupShown
++                 && !root.fullScreenTransparentPopupStacked
++                 && !(ViewManager.activeViewItem && ViewManager.activeViewItem.transparentWindow)
+         source: active
+                 ? "file:///fs/mp/fordhmi/qml/hmicustomapps/apps/Jan/Camper/Camper.qml"
+                 : ""

@@ -1,0 +1,25 @@
+// Beispielcode für eine bestätigte bildschirmfüllende Root-QML.
+// Er ist absichtlich kein fertiger Patch, weil Pfad, Typ und Z-Reihenfolge der
+// aktiven Root-Datei zuerst vom konkreten APIM übernommen werden müssen.
+// import "RELATIVER/PFAD/ZU/hmicustomapps/camperbridge" as CamperBridge
+
+Loader {
+    id: camperLoader
+    anchors.fill: parent
+    z: 10000
+    active: CamperBridge.CamperState.camperOpen
+    source: active
+        ? "file:///fs/mp/fordhmi/qml/hmicustomapps/apps/Jan/Camper/Camper.qml"
+        : ""
+
+    onLoaded: {
+        item.width = parent.width
+        item.height = parent.height
+        item.embeddedInGlobalHost = true
+    }
+}
+
+Connections {
+    target: camperLoader.item
+    onCloseRequested: CamperBridge.CamperState.camperOpen = false
+}

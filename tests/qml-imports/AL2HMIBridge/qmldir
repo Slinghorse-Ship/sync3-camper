@@ -1,0 +1,2 @@
+module AL2HMIBridge
+singleton globalSource 1.0 GlobalSource.qml

@@ -1,0 +1,52 @@
+--- fs/mp/fordhmi/qml/Root.qml
++++ fs/mp/fordhmi/qml/Root.qml
+@@ -8,6 +8,7 @@
+ import AL2HMIBridge 1.0 as AL2HMIBridge
+ import HmiTest 1.0 as HmiTest
+ import QtGraphicalEffects 1.0
++import "hmicustomapps/camperbridge" as CamperBridge
+ 
+ //TODO change it to item and move the content definition to style
+ Item {
+@@ -396,6 +397,41 @@
+         omitNumberGroupSeparator: true
+     }
+ 
++    // CamperControl: globaler Vollbild-Loader. Die App bleibt außerhalb der
++    // Ford-Domainnavigation und unterliegt keinen fahrabhängigen Sperren.
++    Loader {
++        id: camperControlLoader
++        anchors.fill: parent
++        z: 10000
++        active: CamperBridge.CamperState.camperOpen
++        // Kamera hat Vorrang. Der Loader bleibt aktiv und behält seinen Zustand,
++        // ist während Rückfahr-/Frontkamera aber unsichtbar und nicht bedienbar.
++        // qrvc is only a short transition signal on some SYNC builds. The
++        // full-screen counters remain active for the complete camera view.
++        visible: active
++                 && !ViewController.qrvc
++                 && viewContainer.fullScreenViewActive === 0
++                 && !root.fullScreenPopupActive
++                 && !root.hasActivePopup
++                 && !ViewController.transparentWindowPopupShown
++                 && !root.fullScreenTransparentPopupStacked
++                 && !(ViewManager.activeViewItem && ViewManager.activeViewItem.transparentWindow)
++        source: active
++                ? "file:///fs/mp/fordhmi/qml/hmicustomapps/apps/Jan/Camper/Camper.qml"
++                : ""
++
++        onLoaded: {
++            item.width = width
++            item.height = height
++            item.embeddedInGlobalHost = true
++        }
++    }
++
++    Connections {
++        target: camperControlLoader.item
++        onCloseRequested: CamperBridge.CamperState.camperOpen = false
++    }
++
+     Rectangle {
+         id: touchMarker
+ 

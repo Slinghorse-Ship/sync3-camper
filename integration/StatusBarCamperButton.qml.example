@@ -1,0 +1,45 @@
+// Beispielcode für die bestehende Row in StatusBarDriverTemperature.qml.
+// Den relativen Importpfad an den finalen Installationsort des Singletons anpassen:
+// import "../hmicustomapps/camperbridge" as CamperBridge
+
+Item {
+    id: camperShortcutItem
+    width: 50
+    height: 40
+    visible: ViewManager.activeDomain !== HmiGui.CalmDomain
+
+    function readPosition() {
+        var xhr = new XMLHttpRequest()
+        try {
+            xhr.open("GET", "file:///fs/rwdata/fmods/mods/camper/camper_icon_position", false)
+            xhr.send()
+            var value = Number(xhr.responseText)
+            return isFinite(value) ? value : 0
+        } catch (error) {
+            return 0
+        }
+    }
+
+    function writePosition(value) {
+        var xhr = new XMLHttpRequest()
+        xhr.open("PUT", "file:///fs/rwdata/fmods/mods/camper/camper_icon_position")
+        xhr.send(String(value))
+    }
+
+    Image {
+        id: camperIcon
+        width: 40
+        height: 40
+        x: camperShortcutItem.readPosition()
+        source: "file:///fs/mp/fordhmi/qml/hmicustomapps/apps/Jan/Camper/Icon.png"
+        fillMode: Image.PreserveAspectFit
+    }
+
+    MouseArea {
+        anchors.fill: parent
+        drag.target: camperIcon
+        drag.axis: Drag.XAxis
+        onClicked: CamperBridge.CamperState.camperOpen = true
+        onReleased: camperShortcutItem.writePosition(camperIcon.x)
+    }
+}

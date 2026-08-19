@@ -1,0 +1,184 @@
+import QtQuick 2.0
+
+import HmiGui 1.0
+import HmiGuiFramework.Controls 1.0
+import Hmi.Ford 1.0
+
+import AL2HMIBridge 1.0 as AL2HMIBridge
+
+import HmiClimate 1.0
+import HmiTravelLink 1.0
+import HmiPhone 1.0
+import HmiMedia 1.0
+
+import "../hmiclimate/climate-utils.js" as ClimateUtils
+import "components"
+
+// Ford HMI Requirement: H22e_SYNC_Gen3_Status_Bar, Screen 20
+
+Row {
+    id: root
+    objectName: "StatusBarDriverTemperature"
+    property bool leftHandDriveVehicle: AL2HMIBridge.globalSource.leftHandDriveVehicle
+    property bool  trafficAnnouncementProgramSelected: AL2HMIBridge.fmTunerSource.trafficAnnouncementProgramSelected
+                                                      || AL2HMIBridge.dabTunerSource.trafficAnnouncementProgramSelected
+                                                      || AL2HMIBridge.amTunerSource.trafficAnnouncementProgramSelected
+    spacing: 2
+    anchors.top: parent ?  parent.top : undefined
+    anchors.bottom: parent?  parent.bottom : undefined
+
+	Item {
+		id: rvcShortcutItem
+		visible: ViewManager.activeDomain !== HmiGui.CalmDomain
+
+		HmiImage {
+			id: background
+		
+			anchors.centerIn: rvcIcon
+			source: UiTheme.palette.image("statusBarHomeButton_pressed")
+			opacity: touchArea.pressed ? 1 : 0 /* Dirty trick to make toucharea working fine when bg is not visible */
+			
+			MouseArea {
+				id: touchArea
+				anchors.fill: parent
+				drag.target: rvcIcon
+				drag.axis: Drag.XAxis
+				onClicked: setStatus()
+				onReleased:	{
+					writePosition(rvcIcon.x);
+				}
+			}
+		}
+
+		HmiImage {
+			id: rvcSeparator1
+			anchors.right: background.left
+			source: UiTheme.palette.image("linedivider_2x117")
+			visible: false
+		}
+
+		HmiImage {
+			id: rvcIcon
+			x: readPosition()
+			y: 10
+		
+			source: touchArea.pressed ? UiTheme.palette.icon("40x40/DAT/icon_rear_camera_view_selected") : UiTheme.palette.icon("40x40/DAT/icon_rear_camera_view_selectedpressed")
+		}
+
+		HmiImage {
+			id: rvcSeparator2
+			anchors.left: background.right
+			source: UiTheme.palette.image("linedivider_2x117")
+			visible: false
+		}
+	}
+
+    TemperatureHeatedSeat{
+        id: heatedSeatTemp
+        objectName: "StatusBarDriverTemperature_heatedSeatTemp"
+        layoutDirection: Qt.RightToLeft
+        temperatureController: _lhsTemperatureController
+        seatController: _lhsHeatedSeatController
+        leftHandDriveVehicleEnabled : leftHandDriveVehicle
+    }
+
+    StatusIconWidget {
+        id: statusBarWidget
+        objectName: "StatusBarDriverTemperature_statusBarWidget"
+
+        iconStatus: {
+            if ((AL2HMIBridge.TunerSource.AlarmAnnouncement === AL2HMIBridge.amTunerSource.announcementType)
+                    || (AL2HMIBridge.TunerSource.AlarmAnnouncement === AL2HMIBridge.fmTunerSource.announcementType )
+                    || (AL2HMIBridge.TunerSource.AlarmAnnouncement === AL2HMIBridge.dabTunerSource.announcementType)) {
+                return "EmergencyAnnouncement";
+            } else if ((AL2HMIBridge.globalSource.mainAudioSource === AL2HMIBridge.GlobalSource.AMAudioSource && AL2HMIBridge.TunerSource.NewsAnnouncement === AL2HMIBridge.amTunerSource.announcementType)
+                       || (AL2HMIBridge.globalSource.mainAudioSource === AL2HMIBridge.GlobalSource.FMAudioSource && AL2HMIBridge.TunerSource.NewsAnnouncement === AL2HMIBridge.fmTunerSource.announcementType)
+                       || (AL2HMIBridge.globalSource.mainAudioSource === AL2HMIBridge.GlobalSource.DABAudioSource && AL2HMIBridge.TunerSource.NewsAnnouncement === AL2HMIBridge.dabTunerSource.announcementType)) {
+                return "NewsAnnouncement";
+            } else if (AL2HMIBridge.globalSource.mainAudioSource === AL2HMIBridge.GlobalSource.AMAudioSource
+                       && AL2HMIBridge.amTunerSource.trafficAnnouncementEnabled) {
+                if (root.trafficAnnouncementProgramSelected) {
+                    if (AL2HMIBridge.TunerSource.TrafficAnnouncement === AL2HMIBridge.amTunerSource.announcementType) {
+                        return "TrafficAnnouncement";
+                    } else {
+                        return "TrafficAnnouncementOn";
+                    }
+                }
+                return "TrafficAnnouncementOnNoProgram";
+            } else if (AL2HMIBridge.globalSource.mainAudioSource === AL2HMIBridge.GlobalSource.FMAudioSource
+                       && AL2HMIBridge.fmTunerSource.trafficAnnouncementEnabled) {
+                if (root.trafficAnnouncementProgramSelected) {
+                    if (AL2HMIBridge.TunerSource.TrafficAnnouncement === AL2HMIBridge.fmTunerSource.announcementType) {
+                        return "TrafficAnnouncement";
+                    } else {
+                        return "TrafficAnnouncementOn";
+                    }
+                }
+                return "TrafficAnnouncementOnNoProgram";
+            } else if (AL2HMIBridge.globalSource.mainAudioSource === AL2HMIBridge.GlobalSource.DABAudioSource
+                       && AL2HMIBridge.dabTunerSource.trafficAnnouncementEnabled) {
+                if (root.trafficAnnouncementProgramSelected) {
+                    if (AL2HMIBridge.TunerSource.TrafficAnnouncement === AL2HMIBridge.dabTunerSource.announcementType) {
+                        return "TrafficAnnouncement";
+                    } else {
+                        return "TrafficAnnouncementOn";
+                    }
+                }
+                return "TrafficAnnouncementOnNoProgram";
+                //In case we get a TA when not listening to a radio source
+            } else if (AL2HMIBridge.globalSource.mainAudioSource !== AL2HMIBridge.GlobalSource.AMAudioSource
+                       && AL2HMIBridge.globalSource.mainAudioSource !== AL2HMIBridge.GlobalSource.FMAudioSource
+                       && AL2HMIBridge.globalSource.mainAudioSource !== AL2HMIBridge.GlobalSource.DABAudioSourc
+                       && (AL2HMIBridge.amTunerSource.trafficAnnouncementEnabled
+                           || AL2HMIBridge.fmTunerSource.trafficAnnouncementEnabled
+                           || AL2HMIBridge.dabTunerSource.trafficAnnouncementEnabled)) {
+                if (root.trafficAnnouncementProgramSelected) {
+                    if (AL2HMIBridge.TunerSource.TrafficAnnouncement === AL2HMIBridge.amTunerSource.announcementType
+                            || AL2HMIBridge.TunerSource.TrafficAnnouncement === AL2HMIBridge.fmTunerSource.announcementType
+                            || AL2HMIBridge.TunerSource.TrafficAnnouncement === AL2HMIBridge.dabTunerSource.announcementType) {
+                        return "TrafficAnnouncement";
+                    } else {
+                        return "TrafficAnnouncementOn";
+                    }
+                }
+                return "TrafficAnnouncementOnNoProgram";
+            }
+            return "Inactive";
+        }
+
+        iconMap: {
+            "Inactive": "",
+                    "EmergencyAnnouncement": "statusbar/icon_eu_emergency_announcement_active",
+                    "NewsAnnouncement": "statusbar/icon_news_announcement_active",
+                    "TrafficAnnouncement": "statusbar/icon_ta_on_traffic_program_selected_traffic_announcement_active_active",
+                    "TrafficAnnouncementOnNoProgram": "statusbar/icon_ta_on_no_traffic_program_selected_active",
+                    "TrafficAnnouncementOn": "statusbar/icon_ta_on_traffic_program_selected_active"
+        }
+
+        clickable: true
+        onClicked: {
+            _hmiMedia.mediaController.announcementButtonClicked(AL2HMIBridge.globalSource.mainAudioSource);
+        }
+        visible: iconStatus !== "Inactive" && !blockedByDomain && !leftHandDriveVehicle
+    }
+
+	function setStatus() {
+		var xhr = new XMLHttpRequest();
+		var rvcStatus = "camera_manager enable";
+		xhr.open("PUT", "file:///fs/tmpfs/commands");
+		xhr.send(rvcStatus);
+	}
+
+	function readPosition() {
+		var xhr = new XMLHttpRequest();
+		xhr.open("GET", "file:///fs/rwdata/fmods/mods/rvc-on-demand/camera_icon_position",false);
+		xhr.send();
+		return xhr.responseText;
+	}
+
+	function writePosition(value) {
+		var xhr = new XMLHttpRequest();
+		xhr.open("PUT", "file:///fs/rwdata/fmods/mods/rvc-on-demand/camera_icon_position");
+		xhr.send(value);
+	}
+}

@@ -1,0 +1,8 @@
+{
+  "appId": "com.jan.camper",
+  "appName": "Camper",
+  "appFile": "Jan/Camper/Camper.qml",
+  "appIcon": "Jan/Camper/Icon",
+  "appVersion": "3.9.8",
+  "appHideTitle": true
+}
