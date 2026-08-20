@@ -70,16 +70,34 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     left_edge = root.findChild(QObject, "v2LeftEdgeSwipe")
     right_edge = root.findChild(QObject, "v2RightEdgeSwipe")
     edge_close = root.findChild(QObject, "v2EdgePanelClose")
+    favorites_header_button = root.findChild(QObject, "v2FavoritesHeaderButton")
+    weather_header_button = root.findChild(QObject, "v2WeatherHeaderButton")
+    clock_status = root.findChild(QObject, "v2ClockStatus")
+    favorites_subtitle = root.findChild(QObject, "v2FavoritesSubtitle")
+    favorites_editor_label = root.findChild(QObject, "v2FavoritesEditorLabel")
+    favorite_save_button = root.findChild(QObject, "v2FavoriteSaveButton")
+    favorite_name = root.findChild(QObject, "v2FavoriteName0")
+    favorite_previous = root.findChild(QObject, "v2FavoritePrevious0")
+    home_quick_name = root.findChild(QObject, "v2HomeQuickAccessName0")
+    home_quick_previous = root.findChild(QObject, "v2HomeQuickAccessPrevious0")
     weather_panel = root.findChild(QObject, "v2WeatherPanel")
     weather_chart = root.findChild(QObject, "v2Weather24HourChart")
+    tide_summary = root.findChild(QObject, "v2TideSummary")
     api = root.findChild(QObject, "camperApiClient")
-    if None in (shell, lights_page, energy_page, edge_panels, left_edge, right_edge, edge_close, weather_panel, weather_chart, api):
+    if None in (shell, lights_page, energy_page, edge_panels, left_edge, right_edge, edge_close,
+                favorites_header_button, weather_header_button, clock_status,
+                favorites_subtitle, favorites_editor_label, favorite_save_button,
+                favorite_name, favorite_previous, home_quick_name, home_quick_previous,
+                weather_panel, weather_chart, tide_summary, api):
         raise AssertionError("The V2 shell, pages or shared ApiClient were not instantiated")
     if view.width() != 800 or view.height() != 480:
         raise AssertionError("The GX Touch/SYNC reference viewport is not 800x480")
 
     def snapshot() -> dict:
         value = root.property("snapshot")
+        return value.toVariant() if hasattr(value, "toVariant") else value
+
+    def variant(value):
         return value.toVariant() if hasattr(value, "toVariant") else value
 
     def click(x: int, y: int) -> None:
@@ -96,6 +114,63 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
 
     checks = 0
 
+    # Home keeps the Victron system DC total separate from direct battery flow.
+    # Positive SmartShunt power means charging; negative means discharging.
+    flow_cases = (
+        (52, "↑ Lädt +52 W"),
+        (-52, "↓ Entlädt 52 W"),
+        (0, "Ruhe"),
+        (None, "–"),
+    )
+    for value, expected in flow_cases:
+        actual = shell.batteryFlowText(value)
+        if actual != expected:
+            raise AssertionError(f"Battery-flow formatter expected {expected!r} for {value!r}, got {actual!r}")
+    runtime_cases = (
+        ((17 * 3600, -52), "17 h"),
+        ((90 * 3600, -52), "3,8 Tage"),
+        ((None, -52), "–"),
+        ((17 * 3600, 52), "Lädt"),
+    )
+    for arguments, expected in runtime_cases:
+        actual = shell.timeToGo(*arguments)
+        if actual != expected:
+            raise AssertionError(f"Time-to-go formatter expected {expected!r} for {arguments!r}, got {actual!r}")
+    checks += 1
+
+    # Visible header controls are adjacent to the clock and only change the
+    # shared panel state. They remain above the scrim for direct panel switching.
+    if (int(favorites_header_button.property("x")), int(favorites_header_button.property("width")),
+            int(favorites_header_button.property("height"))) != (512, 42, 42):
+        raise AssertionError("Favorites header control is not the required 42-pixel target")
+    if (int(weather_header_button.property("x")), int(weather_header_button.property("width")),
+            int(weather_header_button.property("height"))) != (560, 42, 42):
+        raise AssertionError("Weather header control is not the required 42-pixel target")
+    if int(clock_status.property("x")) != 602:
+        raise AssertionError("Header panel controls are no longer immediately beside the clock")
+    api.setProperty("lastCommandResult", {})
+    api.setProperty("lastCommandRequest", {})
+    click(533, 27)
+    if edge_panels.property("activePanel") != -1 or favorites_header_button.property("active") is not True:
+        raise AssertionError("Visible star control did not open/activate Favorites")
+    click(581, 27)
+    if (edge_panels.property("activePanel") != 1 or weather_header_button.property("active") is not True
+            or favorites_header_button.property("active") is not False):
+        raise AssertionError("Visible cloud control did not switch exclusively to DWD Weather")
+    command_result = api.property("lastCommandResult")
+    command_result = command_result.toVariant() if hasattr(command_result, "toVariant") else command_result
+    if command_result:
+        raise AssertionError("Header panel controls issued a backend command")
+    if variant(api.property("lastCommandRequest")):
+        raise AssertionError("Header panel controls touched the API request path")
+    click(533, 27)
+    if edge_panels.property("activePanel") != -1:
+        raise AssertionError("Visible star control did not switch back to Favorites")
+    click(302, 34)
+    if edge_panels.property("activePanel") != 0:
+        raise AssertionError("Shared close control did not reset the header panel state")
+    checks += 1
+
     # Invisible physical-edge gestures share one mutually-exclusive host.
     if (int(left_edge.property("width")), int(left_edge.property("y")), int(left_edge.property("height"))) != (18, 56, 335):
         raise AssertionError("Left V2 edge zone does not match x 0..17 / y 56..390")
@@ -111,10 +186,16 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
         raise AssertionError("Left-edge swipe did not open backend favorites")
     checks += 1
 
-    # The first resolved favorite uses its exact backend command.
-    pump_before = snapshot()["water"]["pump"]["on"]
+    # Favorites are distinct from the Home shortcuts and the first resolved
+    # favorite uses its exact backend command.
+    state = snapshot()
+    home_ids = [item["id"] for item in state["ui"]["quickAccess"]]
+    favorite_ids = [item["id"] for item in state["ui"]["favorites"]]
+    if home_ids == favorite_ids:
+        raise AssertionError("Favorites fell back to the Home quickAccess list")
+    inside_before = item_with(state["lights"]["items"], "id", "inside_main")["on"]
     click(165, 112)
-    if snapshot()["water"]["pump"]["on"] is pump_before:
+    if item_with(snapshot()["lights"]["items"], "id", "inside_main")["on"] is inside_before:
         raise AssertionError("Available favorite did not forward its backend command")
     checks += 1
 
@@ -125,6 +206,36 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     command_result = command_result.toVariant() if hasattr(command_result, "toVariant") else command_result
     if command_result:
         raise AssertionError("Unavailable favorite accepted a command")
+    checks += 1
+
+    # Both compact editors reserve an explicit 12-pixel text/control gap. The
+    # Favorites selection changes locally, then saves only favoriteIds.
+    if (str(favorites_subtitle.property("text")), int(favorites_subtitle.property("width"))) != ("Antippen zum Schalten", 190):
+        raise AssertionError("Favorites subtitle is not concise and width-bounded")
+    favorites_gap = int(favorite_save_button.property("x")) - (
+        int(favorites_editor_label.property("x")) + int(favorites_editor_label.property("width"))
+    )
+    row_gap = int(favorite_previous.property("x")) - (
+        int(favorite_name.property("x")) + int(favorite_name.property("width"))
+    )
+    home_gap = int(home_quick_previous.property("x")) - (
+        int(home_quick_name.property("x")) + int(home_quick_name.property("width"))
+    )
+    if (favorites_gap, row_gap, home_gap) != (12, 12, 12):
+        raise AssertionError(f"Favorites/Home editor gaps expected 12 px, got {(favorites_gap, row_gap, home_gap)}")
+    selected_before = list(variant(root.property("favoriteIds")))
+    api.setProperty("lastCommandRequest", {})
+    click(293, 114)
+    selected_after = list(variant(root.property("favoriteIds")))
+    if selected_after == selected_before or variant(api.property("lastCommandRequest")):
+        raise AssertionError("Favorites editor did not remain a local-only selection change")
+    click(242, 423)
+    request = variant(api.property("lastCommandRequest"))
+    if (request.get("target") != "settings" or request.get("action") != "patch"
+            or list(request.get("extra", {}).get("patch", {}).get("ui", {}).get("favoriteIds", [])) != selected_after):
+        raise AssertionError("Favorites editor did not save only the favoriteIds settings patch")
+    if [item["id"] for item in snapshot()["ui"]["quickAccess"]] != home_ids:
+        raise AssertionError("Favorites editor changed the Home quickAccess list")
     checks += 1
 
     if int(edge_close.property("width")) < 44 or int(edge_close.property("height")) < 44:
@@ -141,6 +252,9 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     hourly = hourly.toVariant() if hasattr(hourly, "toVariant") else hourly
     if len(hourly) < 24:
         raise AssertionError("Weather chart did not receive 24 backend hours")
+    tide_text = str(tide_summary.property("text"))
+    if tide_summary.property("visible") is not True or not all(token in tide_text for token in ("HW", "NW", "m PNP")):
+        raise AssertionError("Optional BSH tide snapshot was not rendered beside the sun data")
     click(274, 34)
     if edge_panels.property("activePanel") != 0:
         raise AssertionError("Shared edge-panel close control did not close weather")

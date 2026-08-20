@@ -8,6 +8,7 @@ Item {
     property var snapshot: ({})
     property bool dayMode: false
     property var quickAccessIds: []
+    property var favoriteIds: []
     property int currentPage: 0
     property double now: new Date().getTime()
 
@@ -25,6 +26,7 @@ Item {
     property var fan: climate.fan || ({})
     property var lights: snapshot.lights || ({})
     property var operations: snapshot.operations || ({})
+    readonly property real batteryFlowDeadband: 5
 
     CamperStyle { id: visual; dayMode: shell.dayMode }
 
@@ -32,10 +34,28 @@ Item {
     function fmt(value, digits, suffix) { return valid(value) ? Number(value).toFixed(digits) + (suffix || "") : "–" + (suffix || "") }
     function signed(value, digits, suffix) { return valid(value) ? (Number(value) > 0 ? "+" : "") + Number(value).toFixed(digits) + (suffix || "") : "–" + (suffix || "") }
     function title() { return ["Home", "Licht", "Klima", "Energie", "Wasser", "System"][currentPage] || "Camper" }
-    function timeToGo(value) {
+    function timeToGo(value, batteryPower) {
+        if (valid(batteryPower) && Number(batteryPower) > batteryFlowDeadband) return "Lädt"
+        if (!valid(value) || Number(value) < 0) return "–"
+        var hours = Number(value) / 3600
+        if (hours >= 24) return (hours / 24).toFixed(1).replace(".", ",") + " Tage"
+        return Math.floor(hours) + " h"
+    }
+    function batteryFlowText(value) {
         if (!valid(value)) return "–"
-        var hours = Math.floor(Number(value) / 3600)
-        return hours >= 48 ? Math.round(hours / 24) + " d" : hours + " h"
+        var power = Number(value)
+        if (Math.abs(power) <= batteryFlowDeadband) return "Ruhe"
+        if (power > 0) return "↑ Lädt +" + power.toFixed(0) + " W"
+        return "↓ Entlädt " + Math.abs(power).toFixed(0) + " W"
+    }
+    function batteryFlowColor(value) {
+        if (!valid(value) || Math.abs(Number(value)) <= batteryFlowDeadband) return visual.muted
+        return Number(value) > 0 ? visual.green : visual.orange
+    }
+    function totalSolarPower() {
+        if (valid(solar.power)) return Number(solar.power)
+        if (valid(energy.totalSolarPower)) return Number(energy.totalSolarPower)
+        return null
     }
     function comfortHumidity() {
         var comfort = temperatureSensors.comfort || ({}), ceiling = temperatureSensors.ceiling || ({}), floor = temperatureSensors.floor || ({})
@@ -48,6 +68,14 @@ Item {
     function quickItems() {
         var items = snapshot.ui && snapshot.ui.quickAccess
         return items && items.length ? items.slice(0, 4) : []
+    }
+    function favoriteItems() {
+        var items = snapshot.ui && snapshot.ui.favorites
+        return items && items.length ? items.slice(0, 4) : []
+    }
+    function favoriteOptions() {
+        var options = snapshot.ui && snapshot.ui.quickAccessOptions
+        return options && options.length ? options : []
     }
     function quickIcon(item) {
         var kinds = { "bulb":"cabinLight", "right-light":"sideRight", "down-light":"rearLight", "left-light":"sideLeft", "lightbar":"lightBar", "warningbar":"warningBar", "highbeam":"highBeam", "outlet":"outlet", "pump":"pump", "satellite":"satellite", "fan":"fan", "plug":"plug", "heater":"flame", "battery":"battery", "home":"home" }
@@ -94,6 +122,7 @@ Item {
         Image { x: 10; y: 5; width: 63; height: 40; source: shell.dayMode ? "transit-line-symbol-light.png" : "transit-line-symbol-dark.png"; fillMode: Image.PreserveAspectFit; smooth: true }
         Text { x: 80; y: 13; width: 385; text: shell.title(); color: visual.text; font.pixelSize: 19; font.bold: true }
         Rectangle {
+            objectName: "v2ClockStatus"
             x: 602; y: 10; width: 76; height: 30; radius: 15
             color: shell.api.connected ? visual.selectedGreen : (shell.dayMode ? "#f8e8e9" : "#321d22")
             Rectangle { x: 10; y: 11; width: 7; height: 7; radius: 4; color: shell.api.connected ? visual.green : visual.red }
@@ -117,18 +146,19 @@ Item {
         x: 19; y: 65; width: 762; height: 326; visible: shell.currentPage === 0
         Rectangle {
             x: 0; y: 0; width: 440; height: 184; radius: 17; color: visual.panel; border.color: visual.border
-            V2Gauge { x: 15; y: 40; width: 106; height: 106; dayMode: shell.dayMode; value: Number(shell.battery.soc || 0); primaryText: shell.fmt(shell.battery.soc, 0, "%"); secondaryText: shell.fmt(shell.battery.voltage, 2, " V") + " · " + shell.timeToGo(shell.battery.timeToGoSeconds) }
+            V2Gauge { x: 15; y: 40; width: 106; height: 106; dayMode: shell.dayMode; value: Number(shell.battery.soc || 0); primaryText: shell.fmt(shell.battery.soc, 0, "%"); secondaryText: shell.fmt(shell.battery.voltage, 2, " V") + " · " + shell.timeToGo(shell.battery.timeToGoSeconds, shell.battery.power) }
+            Text { objectName: "v2BatteryFlow"; x: 15; y: 151; width: 106; height: 14; horizontalAlignment: Text.AlignHCenter; elide: Text.ElideRight; text: shell.batteryFlowText(shell.battery.power); color: shell.batteryFlowColor(shell.battery.power); font.pixelSize: 8; font.bold: true }
             Text { x: 138; y: 15; text: "Energie"; color: visual.text; font.pixelSize: 14; font.bold: true }
             Rectangle { x: 138; y: 49; width: 138; height: 119; radius: 12; color: visual.inner
                 V2Icon { x: 11; y: 11; width: 21; height: 21; kind: "solar"; lineColor: visual.blue; strokeWidth: 1.7 }
-                Text { x: 10; y: 48; text: shell.fmt(shell.energy.totalSolarPower, 0, " W"); color: visual.text; font.pixelSize: 20; font.bold: true }
+                Text { x: 10; y: 48; text: shell.fmt(shell.totalSolarPower(), 0, " W"); color: visual.text; font.pixelSize: 20; font.bold: true }
                 Text { x: 10; y: 79; text: "Solar gesamt"; color: visual.muted; font.pixelSize: 9 }
                 MouseArea { anchors.fill: parent; onClicked: { shell.currentPage = 3; energyPage.pane = 2 } }
             }
             Rectangle { x: 284; y: 49; width: 141; height: 119; radius: 12; color: visual.inner
                 V2Icon { x: 11; y: 11; width: 21; height: 21; kind: "battery"; lineColor: visual.blue; strokeWidth: 1.7 }
-                Text { x: 10; y: 48; text: shell.signed(shell.battery.power, 0, " W"); color: visual.text; font.pixelSize: 20; font.bold: true }
-                Text { x: 10; y: 79; text: "Batterieleistung"; color: visual.muted; font.pixelSize: 9 }
+                Text { x: 10; y: 48; text: shell.fmt(shell.energy.dcSystemPower, 0, " W"); color: visual.text; font.pixelSize: 20; font.bold: true }
+                Text { x: 10; y: 79; text: "DC-Verbrauch"; color: visual.muted; font.pixelSize: 9 }
             }
         }
 
@@ -276,7 +306,10 @@ Item {
         anchors.fill: parent
         z: 200
         api: shell.api
-        favorites: shell.quickItems()
+        host: shell.host
+        favoriteIds: shell.favoriteIds
+        favoriteOptions: shell.favoriteOptions()
+        favorites: shell.favoriteItems()
         weather: shell.snapshot.weather || ({})
         dayMode: shell.dayMode
     }

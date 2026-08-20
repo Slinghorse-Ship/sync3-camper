@@ -43,6 +43,7 @@ Item {
     property string clientAddress: "lokal"
     property string activeBaseUrl: "preview://offline"
     property var lastCommandResult: ({})
+    property var lastCommandRequest: ({})
     property var stateData: ({
         system: { name: "FORD TRANSIT CAMPER", online: true, service: {
             external_wifi_available: 1, external_wifi_enabled: 1, external_wifi_state: "verbunden",
@@ -58,7 +59,17 @@ Item {
                 { id: "switch:water_pump", group: "12 V", name: "Wasserpumpe" },
                 { id: "switch:starlink", group: "12 V", name: "Starlink" },
                 { id: "scene:arrival", group: "Szenen", name: "Ankommen" },
-                { id: "device:orion", group: "Geräte", name: "Orion XS" }
+                { id: "device:orion", group: "Geräte", name: "Orion XS" },
+                { id: "light:inside_main", group: "Licht", name: "Innenlicht" },
+                { id: "switch:dc_outlets_left", group: "12 V", name: "Steckdosen links" },
+                { id: "switch:maxxfan", group: "Geräte", name: "MaxxFan" }
+            ],
+            favoriteIds: ["light:inside_main", "switch:dc_outlets_left", "switch:maxxfan", "device:orion"],
+            favorites: [
+                { id: "light:inside_main", name: "Innenlicht", icon: "bulb", active: true, available: true, status: "EIN · 72 %", command: { target: "starpower", action: "set", value: 0, channel: 9 } },
+                { id: "switch:dc_outlets_left", name: "Steckdosen links", icon: "outlet", active: true, available: true, status: "EIN", command: { target: "starpower", action: "set", value: 0, channel: 1 } },
+                { id: "switch:maxxfan", name: "MaxxFan", icon: "fan", active: true, available: true, status: "30 %", command: { target: "maxxfan", action: "set", value: false } },
+                { id: "device:orion", name: "Orion XS", icon: "battery", active: false, available: false, status: "NICHT VERFÜGBAR", command: { target: "orion", action: "set", value: true } }
             ],
             quickAccess: [
                 { id: "switch:water_pump", name: "Wasserpumpe", icon: "pump", active: true, available: true, status: "EIN", command: { target: "waterPump", action: "set", value: false } },
@@ -77,6 +88,13 @@ Item {
             stale: false,
             timezone: "Europe/Berlin",
             sun: { date: new Date().toISOString().slice(0, 10), riseUtc: new Date(Date.now() - 18000000).toISOString(), setUtc: new Date(Date.now() + 18000000).toISOString(), origin: "calculated" },
+            tides: {
+                source: "BSH", attribution: "Bundesamt für Seeschifffahrt und Hydrographie",
+                station: { id: "PREVIEW-TIDE", name: "Pegel am See", distanceKm: 6.8 },
+                updatedUtc: new Date(Date.now() - 300000).toISOString(), stale: false, referenceLevel: "PNP",
+                nextHigh: { t: new Date(Date.now() + 2 * 3600000).toISOString(), heightM: 4.2 },
+                nextLow: { t: new Date(Date.now() + 8 * 3600000).toISOString(), heightM: 1.1 }
+            },
             hourly: [
                 { t: new Date(Date.now()).toISOString(), tempC: 18.4, condition: "Leicht bewölkt", icon: "partly-cloudy", precipProbabilityPct: 15, precipMm: 0, windKmh: 11 },
                 { t: new Date(Date.now() +  1*3600000).toISOString(), tempC: 18.0, icon: "cloudy", precipProbabilityPct: 20, precipMm: 0, windKmh: 10 },
@@ -113,7 +131,8 @@ Item {
             ]
         },
         energy: {
-            totalSolarPower: 486,
+            totalSolarPower: 312,
+            dcSystemPower: 156,
             battery: { name: "SMARTSHUNT", soc: 82, voltage: 13.4, starterVoltage: 12.7, current: -10.3, power: -138, consumedAh: 42.6, timeToGoSeconds: 61200, installedCapacityAh: 300, online: true },
             solar: { name: "VICTRON SOLAR", power: 312, chargers: [
                 { instance: 278, name: "SmartSolar MPPT 100/30", serial: "HQ2241ZN2NP", power: 118, pvVoltage: 38.7, yieldTodayKwh: 0.72, state: 5, online: true },
@@ -196,10 +215,17 @@ Item {
     function stop() { polling = false }
     function reconnect() { connected = true; statusText = "Lokale Vorschau" }
     function readSettings() {
-        settingsReceived({ lights: stateData.lights.items })
+        settingsReceived({
+            lights: stateData.lights.items,
+            ui: {
+                quickAccessIds: ["switch:water_pump", "switch:starlink", "scene:arrival", "device:orion"],
+                favoriteIds: stateData.ui.favoriteIds.slice(0)
+            }
+        })
     }
     function commit(copy) { stateData = JSON.parse(JSON.stringify(copy)) }
     function command(target, action, value, extra) {
+        lastCommandRequest = { target: target, action: action, value: value, extra: extra || ({}) }
         var copy = JSON.parse(JSON.stringify(stateData))
         var channel = extra && extra.channel !== undefined ? Number(extra.channel) : -1
         var changed = false

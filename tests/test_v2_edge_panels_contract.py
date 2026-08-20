@@ -10,6 +10,7 @@ main = (QML / "CamperMain.qml").read_text(encoding="utf-8")
 shell = (QML / "ModernShell.qml").read_text(encoding="utf-8")
 panels = (QML / "V2EdgePanels.qml").read_text(encoding="utf-8")
 icons = (QML / "V2Icon.qml").read_text(encoding="utf-8")
+settings = (QML / "SettingsPanel.qml").read_text(encoding="utf-8")
 installer = (ROOT / "SyncMyMod/autoinstall.sh").read_text(encoding="utf-8")
 preview = (ROOT / "tools/preview_qml.py").read_text(encoding="utf-8")
 readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -46,6 +47,32 @@ checks = {
             '"maxHourlyPrecipProbabilityPct"',
         )
     ),
+    "optional BSH tides use only the defensive Cerbo weather contract": all(
+        token in panels
+        for token in (
+            "weather.tides",
+            'data.source !== "BSH"',
+            'data.referenceLevel !== "PNP"',
+            "data.updatedUtc",
+            "data.stale",
+            "station.distanceKm",
+            "data.nextHigh",
+            "data.nextLow",
+            "event.heightM === null",
+            'objectName: "v2TideSummary"',
+            "visible: panels.tidesAvailable",
+            ' + " m PNP"',
+            '" · veraltet"',
+        )
+    ),
+    "invalid or absent tides remain hidden without a SYNC network path": (
+        "function validIsoTimestamp(value)" in panels
+        and "function validTides(data)" in panels
+        and "validTideEvent(data.nextHigh) && validTideEvent(data.nextLow)" in panels
+        and "XMLHttpRequest" not in panels
+        and "http://" not in panels
+        and "https://" not in panels
+    ),
     "weather renders 24 hours and six days": (
         'objectName: "v2Weather24HourChart"' in panels
         and "Math.min(24," in panels
@@ -57,11 +84,23 @@ checks = {
         and 'x: 14; y: 445; width: 532' in panels
         and "visible:" not in panels[panels.index('text: "Quelle: "'):panels.index('text: "Quelle: "') + 240]
     ),
-    "favorites come only from backend-resolved quick access": (
-        "snapshot.ui && snapshot.ui.quickAccess" in shell
+    "favorites are distinct from Home quick access and fail closed": (
+        "snapshot.ui && snapshot.ui.favorites" in shell
+        and "favorites: shell.favoriteItems()" in shell
+        and "favorites: shell.quickItems()" not in shell
+        and "snapshot.ui && snapshot.ui.quickAccess" in shell
+        and 'property var favoriteIds: []' in main
+        and "remoteConfig.ui.favoriteIds" in main
         and "fallbackQuick" not in shell
         and "findLight" not in shell
-        and "favorites: shell.quickItems()" in shell
+    ),
+    "favorites reuse only the shared option catalog and their own settings patch": (
+        "snapshot.ui && snapshot.ui.quickAccessOptions" in shell
+        and "favoriteOptions: shell.favoriteOptions()" in shell
+        and "function changeFavorite(index, direction)" in main
+        and "function saveFavorite()" in main
+        and "patch: { ui: { favoriteIds: ids } }" in main
+        and "quickAccessIds" not in main[main.index("function saveFavorite()"):main.index("function changeLightChannel")]
     ),
     "favorites use the native V2 star icon": (
         'kind: "favorite"' in panels
@@ -78,11 +117,46 @@ checks = {
             "enabled: parent.actionable",
         )
     ),
+    "favorites editor text is bounded with twelve-pixel control gaps": (
+        'objectName: "v2FavoritesSubtitle"' in panels
+        and 'width: 190; clip: true; elide: Text.ElideRight; text: "Antippen zum Schalten"' in panels
+        and 'objectName: "v2FavoritesEditorLabel"' in panels
+        and 'x: 14; y: 407; width: 132; height: 32; clip: true; elide: Text.ElideRight' in panels
+        and 'x: 158; y: 401; width: 168; height: 44' in panels
+        and 'x: 64; y: 10; width: 132; clip: true; elide: Text.ElideRight' in panels
+        and 'x: 208; y: 12; width: 42; height: 44' in panels
+        and 'objectName: "v2HomeQuickAccessName" + index' in settings
+        and 'x: 10; y: 25; width: 236; clip: true; elide: Text.ElideRight' in settings
+        and 'objectName: "v2HomeQuickAccessPrevious" + index; x: 258' in settings
+    ),
     "one activePanel property makes drawers mutually exclusive": (
         "property int activePanel: 0" in panels
         and "activePanel = -1" in panels
         and "activePanel = 1" in panels
         and panels.count("property int activePanel") == 1
+    ),
+    "header buttons are 42-pixel panel-only controls beside the clock": (
+        'objectName: "v2ClockStatus"' in shell
+        and 'x: 602; y: 10; width: 76; height: 30' in shell
+        and panels.count('objectName: "v2FavoritesHeaderButton"') == 1
+        and panels.count('objectName: "v2WeatherHeaderButton"') == 1
+        and 'x: 512; y: 6; width: 42; height: 42' in panels
+        and 'x: 560; y: 6; width: 42; height: 42' in panels
+    ),
+    "header buttons open only their mutually-exclusive UI panels": (
+        "property bool active: panels.activePanel === -1" in panels
+        and "property bool active: panels.activePanel === 1" in panels
+        and "onClicked: panels.openFavorites()" in panels
+        and "onClicked: panels.openWeather()" in panels
+        and 'kind: "favorite"' in panels[panels.index('id: favoritesHeaderButton'):panels.index('id: weatherHeaderButton')]
+        and 'kind: "weatherCloud"' in panels[panels.index('id: weatherHeaderButton'):panels.index('id: leftEdge')]
+        and "api.command" not in panels[panels.index('id: favoritesHeaderButton'):panels.index('id: leftEdge')]
+    ),
+    "header buttons expose an active/open visual state above the scrim": (
+        panels[panels.index('id: favoritesHeaderButton'):panels.index('id: weatherHeaderButton')].count("visual.selectedBlue") == 1
+        and panels[panels.index('id: weatherHeaderButton'):panels.index('id: leftEdge')].count("visual.selectedBlue") == 1
+        and panels[panels.index('id: favoritesHeaderButton'):panels.index('id: leftEdge')].count("z: 60") == 2
+        and 'x: 372; y: 14; width: 168' in panels
     ),
     "drawers have their agreed widths": (
         'id: favoritePanel' in panels
@@ -120,6 +194,23 @@ checks = {
             "hourly: [",
             "daily: [",
         )
+    ),
+    "preview includes an independent optional BSH tide fixture": all(
+        token in preview
+        for token in (
+            "tides: {",
+            'source: "BSH"',
+            'referenceLevel: "PNP"',
+            "nextHigh:",
+            "nextLow:",
+            "heightM:",
+        )
+    ),
+    "preview keeps favorites and Home fixtures distinct": (
+        'favoriteIds: ["light:inside_main", "switch:dc_outlets_left", "switch:maxxfan", "device:orion"]' in preview
+        and "favorites: [" in preview
+        and "quickAccess: [" in preview
+        and preview.index("favorites: [") < preview.index("quickAccess: [")
     ),
     "installer requires the edge-panel payload": '"${APP_SOURCE}/V2EdgePanels.qml"' in installer,
     "release version is consistent": all(

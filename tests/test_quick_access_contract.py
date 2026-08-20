@@ -17,6 +17,13 @@ checks = {
     "catalog drives settings": "snapshot.ui.quickAccessOptions" in main,
     "generic ids are saved": "ui: { quickAccessIds: quickAccessIds }" in main,
     "snapshot drives home": "snapshot.ui && snapshot.ui.quickAccess" in shell,
+    "Home never consumes favorites": (
+        "function quickItems()" in shell
+        and "snapshot.ui && snapshot.ui.quickAccess" in shell[
+            shell.index("function quickItems()"):shell.index("function favoriteItems()")
+        ]
+        and "favorites" not in shell[shell.index("function quickItems()"):shell.index("function favoriteItems()")]
+    ),
     "backend command is used": "action.target, action.action, action.value, extra" in shell,
     "unavailable shortcuts disabled": "enabled: quick.available === true" in shell,
     "settings explain all types": "Licht, 12 V, Wasserpumpe, Geräte und Szenen" in settings,

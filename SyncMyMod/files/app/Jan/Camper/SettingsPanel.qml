@@ -89,7 +89,7 @@ Item {
             color: host.panelColor; border.color: host.fordBlue
             Text { x: 16; y: 13; text: "OBERFLÄCHE"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Text { x: 16; y: 36; text: "Transit Horizon V2"; color: host.primaryText; font.pixelSize: 12; font.bold: true }
-            Text { x: 16; y: 58; text: "Von links: Favoriten · von rechts: Wetter · ohne sichtbaren Griff"; color: host.secondaryText; font.pixelSize: 9 }
+            Text { x: 16; y: 58; width: 620; clip: true; elide: Text.ElideRight; text: "Stern: Favoriten · Wolke: DWD-Wetter · Kantenwisch bleibt aktiv"; color: host.secondaryText; font.pixelSize: 9 }
             Rectangle {
                 x: 652; y: 22; width: 96; height: 48; radius: 11
                 color: host.dayMode ? "#dceff8" : "#102d3d"; border.color: host.fordBlue
@@ -132,8 +132,8 @@ Item {
                     x: 16 + (index % 2) * 376; y: 38 + Math.floor(index / 2) * 61
                     width: 366; height: 53; radius: 9; color: host.innerPanelColor; border.color: host.lineColor
                     Text { x: 10; y: 6; text: "PLATZ " + (index + 1); color: host.secondaryText; font.pixelSize: 8; font.bold: true }
-                    Text { x: 10; y: 25; width: 225; elide: Text.ElideRight; text: host.quickAccessName(host.quickAccessIds[index]); color: host.primaryText; font.pixelSize: 11; font.bold: true }
-                    TouchButton { x: 258; y: 7; width: 44; height: 39; label: "−"; fontSize: 17; onClicked: host.changeQuickAccess(index, -1) }
+                    Text { objectName: "v2HomeQuickAccessName" + index; x: 10; y: 25; width: 236; clip: true; elide: Text.ElideRight; text: host.quickAccessName(host.quickAccessIds[index]); color: host.primaryText; font.pixelSize: 11; font.bold: true }
+                    TouchButton { objectName: "v2HomeQuickAccessPrevious" + index; x: 258; y: 7; width: 44; height: 39; label: "−"; fontSize: 17; onClicked: host.changeQuickAccess(index, -1) }
                     TouchButton { x: 310; y: 7; width: 44; height: 39; label: "+"; fontSize: 17; onClicked: host.changeQuickAccess(index, 1) }
                 }
             }

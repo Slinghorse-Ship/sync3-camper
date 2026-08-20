@@ -27,6 +27,7 @@ Item {
     property var remoteConfig: ({})
     property var lightMapping: []
     property var quickAccessIds: ["switch:water_pump", "switch:starlink", "switch:dc_outlets_left", "light:inside_main"]
+    property var favoriteIds: []
     property double now: new Date().getTime()
     property alias page: modernShell.currentPage
 
@@ -108,6 +109,9 @@ Item {
                 quickAccessIds = migrated
             }
         }
+        var remoteFavorites = remoteConfig.ui && remoteConfig.ui.favoriteIds
+        favoriteIds = remoteFavorites && remoteFavorites.length !== undefined
+                ? remoteFavorites.slice(0, 4) : []
     }
 
     function quickAccessOptions() {
@@ -136,6 +140,28 @@ Item {
         if (occupant >= 0 && occupant !== index) updated[occupant] = updated[index]
         updated[index] = wanted
         quickAccessIds = updated
+    }
+
+    function changeFavorite(index, direction) {
+        var options = quickAccessOptions()
+        if (!options.length || index < 0 || index >= 4) return
+        var choices = []
+        for (var optionIndex = 0; optionIndex < options.length; ++optionIndex)
+            choices.push(options[optionIndex].id)
+        var updated = favoriteIds.slice(0, 4)
+        while (updated.length < 4) updated.push("")
+        var current = choices.indexOf(updated[index])
+        if (current < 0) current = direction > 0 ? -1 : 0
+        var wanted = choices[(current + direction + choices.length) % choices.length]
+        var occupant = updated.indexOf(wanted)
+        if (occupant >= 0 && occupant !== index) updated[occupant] = updated[index]
+        updated[index] = wanted
+        favoriteIds = updated
+    }
+
+    function saveFavorite() {
+        var ids = favoriteIds.slice(0, 4)
+        api.command("settings", "patch", null, { patch: { ui: { favoriteIds: ids } } })
     }
 
     function changeLightChannel(index, direction) {
@@ -280,6 +306,7 @@ Item {
     Component.onCompleted: {
         readLocalSettings()
         api.start()
+        api.readSettings()
     }
     Component.onDestruction: api.stop()
 
@@ -314,6 +341,7 @@ Item {
             snapshot: root.snapshot
             dayMode: root.dayMode
             quickAccessIds: root.quickAccessIds
+            favoriteIds: root.favoriteIds
             now: root.now
         }
 

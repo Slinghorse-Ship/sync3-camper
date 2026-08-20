@@ -5,7 +5,10 @@ Item {
     objectName: "v2EdgePanelsHost"
 
     property var api
+    property var host
     property var favorites: []
+    property var favoriteIds: []
+    property var favoriteOptions: []
     property var weather: ({})
     property bool dayMode: false
     property int activePanel: 0 // -1 = Favoriten, 0 = geschlossen, 1 = Wetter
@@ -16,6 +19,8 @@ Item {
         ? weather.daily : (weather && weather.dailyForecast && weather.dailyForecast.length ? weather.dailyForecast : [])
     readonly property var currentWeather: currentHourly()
     readonly property bool weatherAvailable: hourlyForecast.length > 0 || dailyForecast.length > 0
+    readonly property var tides: weather && weather.tides && typeof weather.tides === "object" ? weather.tides : null
+    readonly property bool tidesAvailable: validTides(tides)
 
     CamperStyle { id: visual; dayMode: panels.dayMode }
 
@@ -72,6 +77,40 @@ Item {
         if (!value) return "–"
         var date = new Date(value)
         return isNaN(date.getTime()) ? "–" : Qt.formatTime(date, "hh:mm")
+    }
+
+    function validIsoTimestamp(value) {
+        if (typeof value !== "string" || !/(Z|[+-]\d\d:\d\d)$/.test(value)) return false
+        var date = new Date(value)
+        return !isNaN(date.getTime())
+    }
+
+    function validTideEvent(event) {
+        return event && typeof event === "object" && validIsoTimestamp(event.t)
+                && (event.heightM === null || validNumber(event.heightM))
+    }
+
+    function validTides(data) {
+        if (!data || typeof data !== "object" || data.source !== "BSH" || data.referenceLevel !== "PNP") return false
+        if (!data.attribution || !validIsoTimestamp(data.updatedUtc)
+                || (data.stale !== true && data.stale !== false)) return false
+        var station = data.station
+        if (!station || typeof station !== "object" || !station.id || !station.name
+                || !validNumber(station.distanceKm)) return false
+        return validTideEvent(data.nextHigh) && validTideEvent(data.nextLow)
+    }
+
+    function tideEventText(label, event, markStale) {
+        if (!validTideEvent(event)) return ""
+        var date = new Date(event.t)
+        var height = event.heightM === null ? "–" : Number(event.heightM).toFixed(1).replace(".", ",") + " m PNP"
+        return label + " " + Qt.formatTime(date, "hh:mm") + " · " + height
+                + (markStale && tides.stale === true ? " · veraltet" : "")
+    }
+
+    function tideSummary() {
+        if (!tidesAvailable) return ""
+        return tideEventText("HW", tides.nextHigh, true) + "\n" + tideEventText("NW", tides.nextLow, false)
     }
 
     function currentHourly() {
@@ -176,6 +215,28 @@ Item {
         return kinds[item && item.icon] || "energy"
     }
 
+    function favoriteIdAt(index) {
+        return favoriteIds && index >= 0 && index < favoriteIds.length ? String(favoriteIds[index] || "") : ""
+    }
+
+    function favoriteForSlot(index) {
+        var id = favoriteIdAt(index)
+        for (var i = 0; favorites && i < favorites.length; ++i)
+            if (String(favorites[i].id || "") === id) return favorites[i]
+        return null
+    }
+
+    function favoriteSelectionName(index) {
+        var id = favoriteIdAt(index)
+        for (var i = 0; favoriteOptions && i < favoriteOptions.length; ++i) {
+            if (String(favoriteOptions[i].id || "") !== id) continue
+            var group = String(favoriteOptions[i].group || "")
+            var name = String(favoriteOptions[i].name || id)
+            return group ? group + " · " + name : name
+        }
+        return id || "Nicht belegt"
+    }
+
     Rectangle {
         id: scrim
         anchors.fill: parent
@@ -204,66 +265,101 @@ Item {
         MouseArea { anchors.fill: parent }
 
         V2Icon { x: 20; y: 17; width: 32; height: 32; kind: "favorite"; lineColor: visual.blue; strokeWidth: 1.8 }
-        Text { x: 62; y: 18; text: "Favoriten"; color: visual.text; font.pixelSize: 20; font.bold: true }
-        Text { x: 62; y: 45; text: "Schnellzugriff"; color: visual.muted; font.pixelSize: 9; font.bold: true }
+        Text { x: 62; y: 18; width: 190; clip: true; elide: Text.ElideRight; text: "Favoriten"; color: visual.text; font.pixelSize: 20; font.bold: true }
+        Text { objectName: "v2FavoritesSubtitle"; x: 62; y: 45; width: 190; clip: true; elide: Text.ElideRight; text: "Antippen zum Schalten"; color: visual.muted; font.pixelSize: 9; font.bold: true }
         Rectangle { x: 20; y: 69; width: 300; height: 1; color: visual.border }
 
-        Text {
-            visible: !panels.favorites || panels.favorites.length === 0
-            x: 20; y: 104; width: 300
-            text: "Keine Favoriten vom Camper-Backend"
-            color: visual.muted; font.pixelSize: 11; wrapMode: Text.WordWrap
-        }
-
         Repeater {
-            model: panels.favorites ? Math.min(4, panels.favorites.length) : 0
+            model: 4
             delegate: Rectangle {
-                property var favorite: panels.favorites[index]
+                property string favoriteId: panels.favoriteIdAt(index)
+                property var favorite: panels.favoriteForSlot(index)
                 property bool actionable: panels.canActivate(favorite)
+                property bool favoriteActive: favorite && favorite.active === true
+                property bool favoriteUnavailable: favorite && favorite.available === false
                 x: 14; y: 80 + index * 78; width: 312; height: 68; radius: 14
-                opacity: favorite.available === false ? .55 : 1
-                color: favorite.active === true ? visual.selectedBlue : visual.inner
-                border.width: favorite.active === true ? 2 : 1
-                border.color: favorite.active === true ? visual.blue : visual.border
+                opacity: favoriteUnavailable ? .55 : 1
+                color: favoriteActive ? visual.selectedBlue : visual.inner
+                border.width: favoriteActive ? 2 : 1
+                border.color: favoriteActive ? visual.blue : visual.border
 
                 Rectangle {
-                    x: 12; y: 12; width: 44; height: 44; radius: 12
-                    color: favorite.active === true ? visual.blue : visual.disabled
+                    x: 10; y: 12; width: 44; height: 44; radius: 12
+                    color: favoriteActive ? visual.blue : visual.disabled
                     V2Icon {
                         anchors.centerIn: parent; width: 26; height: 26
                         kind: panels.favoriteIcon(favorite)
-                        lineColor: favorite.active === true ? "#ffffff" : visual.muted
+                        lineColor: favoriteActive ? "#ffffff" : visual.muted
                         strokeWidth: 1.8
                     }
                 }
                 Text {
-                    x: 68; y: 13; width: 181; elide: Text.ElideRight
-                    text: favorite.name || "Favorit"
+                    objectName: "v2FavoriteName" + index
+                    x: 64; y: 10; width: 132; clip: true; elide: Text.ElideRight
+                    text: favorite && favorite.name ? favorite.name : panels.favoriteSelectionName(index)
                     color: visual.text; font.pixelSize: 12; font.bold: true
                 }
                 Text {
-                    x: 68; y: 38; width: 181; elide: Text.ElideRight
-                    text: favorite.status || (favorite.available === false ? "Nicht verfügbar" : "")
-                    color: favorite.active === true ? visual.blue : visual.muted; font.pixelSize: 9
-                }
-                Text {
-                    x: 252; y: 26; width: 45; horizontalAlignment: Text.AlignRight
-                    text: parent.actionable ? "›" : "ANZEIGE"
-                    color: parent.actionable ? visual.blue : visual.muted
-                    font.pixelSize: parent.actionable ? 20 : 7; font.bold: true
+                    x: 64; y: 37; width: 132; clip: true; elide: Text.ElideRight
+                    text: favorite && favorite.status ? favorite.status : (favoriteId ? "Wird aufgelöst" : "Nicht belegt")
+                    color: favoriteActive ? visual.blue : visual.muted; font.pixelSize: 8
                 }
                 MouseArea {
-                    anchors.fill: parent
+                    x: 0; y: 0; width: 204; height: parent.height
                     enabled: parent.actionable
                     onClicked: panels.activate(parent.favorite)
+                }
+                Rectangle {
+                    objectName: "v2FavoritePrevious" + index
+                    x: 208; y: 12; width: 42; height: 44; radius: 11
+                    color: favoritePreviousArea.pressed ? visual.pressed : visual.disabled
+                    border.color: visual.border
+                    Text { anchors.centerIn: parent; text: "−"; color: visual.text; font.pixelSize: 18 }
+                    MouseArea {
+                        id: favoritePreviousArea; anchors.fill: parent
+                        enabled: panels.favoriteOptions && panels.favoriteOptions.length > 0
+                        onClicked: if (panels.host) panels.host.changeFavorite(index, -1)
+                    }
+                }
+                Rectangle {
+                    objectName: "v2FavoriteNext" + index
+                    x: 258; y: 12; width: 42; height: 44; radius: 11
+                    color: favoriteNextArea.pressed ? visual.pressed : visual.disabled
+                    border.color: visual.border
+                    Text { anchors.centerIn: parent; text: "+"; color: visual.text; font.pixelSize: 18 }
+                    MouseArea {
+                        id: favoriteNextArea; anchors.fill: parent
+                        enabled: panels.favoriteOptions && panels.favoriteOptions.length > 0
+                        onClicked: if (panels.host) panels.host.changeFavorite(index, 1)
+                    }
                 }
             }
         }
 
         Text {
-            x: 20; y: 407; width: 300; height: 47
-            text: "Nicht verfügbare Einträge bleiben sichtbar und schalten nicht."
-            color: visual.muted; font.pixelSize: 8; wrapMode: Text.WordWrap
+            objectName: "v2FavoritesEditorLabel"
+            x: 14; y: 407; width: 132; height: 32; clip: true; elide: Text.ElideRight
+            text: "Favoriten auswählen"
+            color: visual.muted; font.pixelSize: 9; font.bold: true; verticalAlignment: Text.AlignVCenter
+        }
+        Rectangle {
+            id: favoriteSaveButton
+            objectName: "v2FavoriteSaveButton"
+            x: 158; y: 401; width: 168; height: 44; radius: 11
+            color: favoriteSaveArea.pressed ? visual.pressed : visual.selectedBlue
+            border.color: visual.blue
+            opacity: panels.favoriteIds && panels.favoriteIds.length > 0 ? 1 : .45
+            Text { anchors.centerIn: parent; text: "AUSWAHL SPEICHERN"; color: visual.blue; font.pixelSize: 8; font.bold: true }
+            MouseArea {
+                id: favoriteSaveArea; anchors.fill: parent
+                enabled: panels.favoriteIds && panels.favoriteIds.length > 0
+                onClicked: if (panels.host) panels.host.saveFavorite()
+            }
+        }
+        Text {
+            x: 14; y: 451; width: 312; clip: true; elide: Text.ElideRight
+            text: "Nicht verfügbare Favoriten bleiben schreibgeschützt."
+            color: visual.muted; font.pixelSize: 7
         }
     }
 
@@ -283,8 +379,8 @@ Item {
 
         MouseArea { anchors.fill: parent }
 
-        Text { x: 72; y: 14; width: 468; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; text: panels.weatherLocation(); color: visual.text; font.pixelSize: 20; font.bold: true }
-        Text { x: 72; y: 42; width: 468; horizontalAlignment: Text.AlignRight; text: panels.weatherUpdatedText(); color: visual.muted; font.pixelSize: 9; font.bold: true }
+        Text { x: 372; y: 14; width: 168; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; text: panels.weatherLocation(); color: visual.text; font.pixelSize: 18; font.bold: true }
+        Text { x: 372; y: 42; width: 168; horizontalAlignment: Text.AlignRight; elide: Text.ElideRight; text: panels.weatherUpdatedText(); color: visual.muted; font.pixelSize: 9; font.bold: true }
         Rectangle { x: 14; y: 66; width: 532; height: 1; color: visual.border }
 
         Item {
@@ -295,7 +391,7 @@ Item {
             Text { x: 77; y: 12; width: 68; text: panels.temperatureText(panels.currentWeather); color: visual.text; font.pixelSize: 30; font.bold: true }
             Text { x: 13; y: 78; width: 128; elide: Text.ElideRight; text: panels.textFrom(panels.currentWeather, "condition", "summary") || "Wetterlage"; color: visual.text; font.pixelSize: 10; font.bold: true }
             Text {
-                x: 13; y: 105; width: 128; elide: Text.ElideRight
+                x: 13; y: 101; width: 128; height: 13; elide: Text.ElideRight
                 text: {
                     var pieces = []
                     var rain = panels.rainProbability(panels.currentWeather)
@@ -303,14 +399,22 @@ Item {
                     if (wind === null) wind = panels.numberFrom(panels.currentWeather, "windSpeed", "wind")
                     if (rain !== null) pieces.push("Regen " + rain.toFixed(0) + " %")
                     if (wind !== null) pieces.push("Wind " + wind.toFixed(0) + " km/h")
-                    return pieces.join("\n")
+                    return pieces.join(" · ")
                 }
-                color: visual.muted; font.pixelSize: 8; lineHeight: 1.35
+                color: visual.muted; font.pixelSize: 7
             }
             Text {
-                x: 13; y: 136; width: 128; elide: Text.ElideRight
+                x: 13; y: 117; width: 128; elide: Text.ElideRight
                 text: "Sonne ↑ " + panels.sunTime("riseUtc") + "  ↓ " + panels.sunTime("setUtc")
                 color: visual.muted; font.pixelSize: 7
+            }
+            Text {
+                objectName: "v2TideSummary"
+                visible: panels.tidesAvailable
+                x: 13; y: 131; width: 128; height: 21; clip: true; elide: Text.ElideRight
+                text: panels.tideSummary()
+                color: panels.tides && panels.tides.stale === true ? visual.orange : visual.blue
+                font.pixelSize: 6; font.bold: true; lineHeight: 1.2
             }
         }
 
@@ -451,7 +555,9 @@ Item {
 
         Text {
             x: 14; y: 445; width: 532; horizontalAlignment: Text.AlignRight
-            text: "Quelle: " + (panels.weather && panels.weather.attribution ? String(panels.weather.attribution) : "Deutscher Wetterdienst") + " · Daten vom Cerbo"
+            elide: Text.ElideRight
+            text: "Quelle: " + (panels.weather && panels.weather.attribution ? String(panels.weather.attribution) : "Deutscher Wetterdienst")
+                    + (panels.tidesAvailable ? " · Tide: " + String(panels.tides.attribution) : "") + " · Daten vom Cerbo"
             color: visual.muted; font.pixelSize: 7
         }
     }
@@ -470,6 +576,38 @@ Item {
         border.color: visual.border
         V2Icon { anchors.centerIn: parent; width: 22; height: 22; kind: "close"; lineColor: visual.text; strokeWidth: 2 }
         MouseArea { id: closeArea; anchors.fill: parent; onClicked: panels.close() }
+    }
+
+    Rectangle {
+        id: favoritesHeaderButton
+        objectName: "v2FavoritesHeaderButton"
+        property bool active: panels.activePanel === -1
+        x: 512; y: 6; width: 42; height: 42; radius: 12
+        z: 60
+        color: favoritesHeaderArea.pressed ? visual.pressed : (active ? visual.selectedBlue : visual.inner)
+        border.color: active ? visual.blue : visual.border
+        border.width: active ? 2 : 1
+        V2Icon {
+            anchors.centerIn: parent; width: 22; height: 22; kind: "favorite"
+            lineColor: favoritesHeaderButton.active ? visual.blue : visual.muted; strokeWidth: 1.8
+        }
+        MouseArea { id: favoritesHeaderArea; anchors.fill: parent; onClicked: panels.openFavorites() }
+    }
+
+    Rectangle {
+        id: weatherHeaderButton
+        objectName: "v2WeatherHeaderButton"
+        property bool active: panels.activePanel === 1
+        x: 560; y: 6; width: 42; height: 42; radius: 12
+        z: 60
+        color: weatherHeaderArea.pressed ? visual.pressed : (active ? visual.selectedBlue : visual.inner)
+        border.color: active ? visual.blue : visual.border
+        border.width: active ? 2 : 1
+        V2Icon {
+            anchors.centerIn: parent; width: 23; height: 23; kind: "weatherCloud"
+            lineColor: weatherHeaderButton.active ? visual.blue : visual.muted; strokeWidth: 1.8
+        }
+        MouseArea { id: weatherHeaderArea; anchors.fill: parent; onClicked: panels.openWeather() }
     }
 
     MouseArea {
