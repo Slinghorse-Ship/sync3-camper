@@ -9,6 +9,7 @@ QML = ROOT / "SyncMyMod/files/app/Jan/Camper"
 main = (QML / "CamperMain.qml").read_text(encoding="utf-8")
 shell = (QML / "ModernShell.qml").read_text(encoding="utf-8")
 panels = (QML / "V2EdgePanels.qml").read_text(encoding="utf-8")
+icons = (QML / "V2Icon.qml").read_text(encoding="utf-8")
 installer = (ROOT / "SyncMyMod/autoinstall.sh").read_text(encoding="utf-8")
 preview = (ROOT / "tools/preview_qml.py").read_text(encoding="utf-8")
 readme = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -17,21 +18,55 @@ wrapper = (QML / "Camper.qml").read_text(encoding="utf-8")
 
 
 checks = {
-    "edge host is instantiated only by the V2 shell": (
+    "edge host is instantiated once by the V2 shell": (
         shell.count("V2EdgePanels {") == 1
         and "V2EdgePanels" not in main
-        and 'visible: root.designVersion === "v1"' in main
+        and "designVersion" not in shell
     ),
-    "weather comes only from the shared snapshot": (
+    "weather is snapshot-only and never performs HTTP": (
         "weather: shell.snapshot.weather || ({})" in shell
         and "property var weather" in panels
-        and not any(token in panels for token in ("XMLHttpRequest", "http://", "https://", "DWD"))
+        and not any(token in panels for token in ("XMLHttpRequest", "http://", "https://"))
+    ),
+    "weather matches the Cerbo schema-1 transport": all(
+        token in panels
+        for token in (
+            "weather.station.name",
+            "weather.fetchedAtUtc",
+            "weather.stale === true",
+            "weather.sun",
+            'sunTime("riseUtc")',
+            'sunTime("setUtc")',
+            '"tempC"',
+            '"precipProbabilityPct"',
+            '"precipMm"',
+            '"windKmh"',
+            '"minC"',
+            '"maxC"',
+            '"maxHourlyPrecipProbabilityPct"',
+        )
+    ),
+    "weather renders 24 hours and six days": (
+        'objectName: "v2Weather24HourChart"' in panels
+        and "Math.min(24," in panels
+        and "Math.min(6, panels.dailyForecast.length)" in panels
+        and 'text: "6-Tage-Vorhersage"' in panels
+    ),
+    "DWD attribution is permanently visible": (
+        "Deutscher Wetterdienst" in panels
+        and 'x: 14; y: 445; width: 532' in panels
+        and "visible:" not in panels[panels.index('text: "Quelle: "'):panels.index('text: "Quelle: "') + 240]
     ),
     "favorites come only from backend-resolved quick access": (
         "snapshot.ui && snapshot.ui.quickAccess" in shell
         and "fallbackQuick" not in shell
         and "findLight" not in shell
         and "favorites: shell.quickItems()" in shell
+    ),
+    "favorites use the native V2 star icon": (
+        'kind: "favorite"' in panels
+        and 'kind === "favorite"' in icons
+        and 'kind: "home"' not in panels[panels.index('id: favoritePanel'):panels.index('id: weatherPanel')]
     ),
     "favorite commands fail closed on capability": all(
         token in panels
@@ -49,35 +84,46 @@ checks = {
         and "activePanel = 1" in panels
         and panels.count("property int activePanel") == 1
     ),
-    "drawers share one scrim and one close control": (
-        panels.count("id: scrim") == 1
-        and panels.count("objectName: \"v2EdgePanelClose\"") == 1
-        and "onClicked: panels.close()" in panels
+    "drawers have their agreed widths": (
+        'id: favoritePanel' in panels
+        and 'id: weatherPanel' in panels
+        and panels[panels.index('id: favoritePanel'):panels.index('id: weatherPanel')].count("width: 340") == 1
+        and "width: 560" in panels[panels.index('id: weatherPanel'):panels.index('id: closeButton')]
     ),
-    "both invisible edge swipe targets are at least 44 pixels": (
-        'objectName: "v2LeftEdgeSwipe"' in panels
-        and 'objectName: "v2RightEdgeSwipe"' in panels
-        and panels.count("width: 44; height: parent.height") == 2
-        and "56) panels.openFavorites()" in panels
-        and "56) panels.openWeather()" in panels
+    "drawers share one scrim and one 48-pixel close control": (
+        panels.count("id: scrim") == 1
+        and panels.count('objectName: "v2EdgePanelClose"') == 1
+        and "width: 48\n        height: 48" in panels
+    ),
+    "invisible edge zones exclude header and navigation": (
+        'x: 0; y: 56; width: 18; height: 335' in panels
+        and 'x: 782; y: 56; width: 18; height: 335' in panels
+        and "dx >= 48" in panels
+        and panels.count("Math.abs(dx) > Math.abs(dy) * 1.5") == 2
         and 'objectName: "v2EdgeHandle"' not in panels
         and "id: edgeHandle" not in panels
     ),
-    "visible favorite and close targets meet 44 pixel minimum": (
-        "width: 312; height: 68" in panels
-        and "width: 44; height: 44" in panels
-        and "width: 48\n        height: 48" in panels
+    "weather is read-only": "panels.activate" not in panels[panels.index("id: weatherPanel"):],
+    "preview fixture uses the exact backend schema": all(
+        token in preview
+        for token in (
+            'schema: 1',
+            'source: "DWD MOSMIX_L"',
+            'attribution: "Deutscher Wetterdienst"',
+            "station:",
+            "modelRunUtc:",
+            "fetchedAtUtc:",
+            "stale: false",
+            "timezone:",
+            "riseUtc:",
+            "setUtc:",
+            "hourly: [",
+            "daily: [",
+        )
     ),
-    "weather is read only": "panels.activate" not in panels[panels.index("id: weatherPanel"):],
-    "preview contains resolved quick access and weather fixtures": (
-        "quickAccess: [" in preview
-        and "weather: {" in preview
-        and 'EDGE_PANEL in ("favorites", "weather")' in preview
-    ),
-    "installer requires the edge panel payload": '"${APP_SOURCE}/V2EdgePanels.qml"' in installer,
+    "installer requires the edge-panel payload": '"${APP_SOURCE}/V2EdgePanels.qml"' in installer,
     "release version is consistent": all(
-        "3.12.0" in text
-        for text in (installer, readme, app_entry, wrapper, shell, preview)
+        "3.12.0" in text for text in (installer, readme, app_entry, wrapper, shell, preview)
     ),
 }
 

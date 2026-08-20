@@ -26,7 +26,6 @@ CPU_VIEW = "--cpu" in sys.argv
 SENSORS_VIEW = "--sensors" in sys.argv
 DIMMER_VIEW = "--dimmer" in sys.argv
 WRAPPER_SMOKE_TEST = "--wrapper-smoke-test" in sys.argv
-DESIGN = next((arg.split("=", 1)[1].lower() for arg in sys.argv if arg.startswith("--design=")), "")
 EDGE_PANEL = next((arg.split("=", 1)[1].lower() for arg in sys.argv if arg.startswith("--edge-panel=")), "")
 SCREENSHOT = next((arg.split("=", 1)[1] for arg in sys.argv if arg.startswith("--screenshot=")), "")
 
@@ -69,14 +68,48 @@ Item {
             ]
         },
         weather: {
-            available: true,
-            location: "Stellplatz am See",
-            updatedAt: Date.now() - 240000,
-            current: { temperature: 18.4, condition: "Leicht bewölkt", icon: "partly-cloudy", precipitationProbability: 15, windSpeed: 11 },
-            forecast: [
-                { time: Date.now() + 3600000, temperature: 18, condition: "Bewölkt", icon: "cloudy", precipitationProbability: 20 },
-                { time: Date.now() + 7200000, temperature: 16, condition: "Leichter Regen", icon: "rain", precipitationProbability: 65 },
-                { time: Date.now() + 10800000, temperature: 14, condition: "Bewölkt", icon: "cloudy", precipitationProbability: 30 }
+            schema: 1,
+            source: "DWD MOSMIX_L",
+            attribution: "Deutscher Wetterdienst",
+            station: { id: "PREVIEW", name: "Stellplatz am See", distanceKm: 4.2 },
+            modelRunUtc: new Date(Date.now() - 7200000).toISOString(),
+            fetchedAtUtc: new Date(Date.now() - 240000).toISOString(),
+            stale: false,
+            timezone: "Europe/Berlin",
+            sun: { date: new Date().toISOString().slice(0, 10), riseUtc: new Date(Date.now() - 18000000).toISOString(), setUtc: new Date(Date.now() + 18000000).toISOString(), origin: "calculated" },
+            hourly: [
+                { t: new Date(Date.now()).toISOString(), tempC: 18.4, condition: "Leicht bewölkt", icon: "partly-cloudy", precipProbabilityPct: 15, precipMm: 0, windKmh: 11 },
+                { t: new Date(Date.now() +  1*3600000).toISOString(), tempC: 18.0, icon: "cloudy", precipProbabilityPct: 20, precipMm: 0, windKmh: 10 },
+                { t: new Date(Date.now() +  2*3600000).toISOString(), tempC: 17.1, icon: "cloudy", precipProbabilityPct: 28, precipMm: 0, windKmh: 9 },
+                { t: new Date(Date.now() +  3*3600000).toISOString(), tempC: 16.2, icon: "rain", precipProbabilityPct: 65, precipMm: .8, windKmh: 12 },
+                { t: new Date(Date.now() +  4*3600000).toISOString(), tempC: 15.5, icon: "rain", precipProbabilityPct: 72, precipMm: 1.4, windKmh: 13 },
+                { t: new Date(Date.now() +  5*3600000).toISOString(), tempC: 14.9, icon: "rain", precipProbabilityPct: 60, precipMm: .6, windKmh: 12 },
+                { t: new Date(Date.now() +  6*3600000).toISOString(), tempC: 14.3, icon: "cloudy", precipProbabilityPct: 35, precipMm: .1, windKmh: 10 },
+                { t: new Date(Date.now() +  7*3600000).toISOString(), tempC: 13.8, icon: "cloudy", precipProbabilityPct: 25, precipMm: 0, windKmh: 9 },
+                { t: new Date(Date.now() +  8*3600000).toISOString(), tempC: 13.4, icon: "cloudy", precipProbabilityPct: 20, precipMm: 0, windKmh: 8 },
+                { t: new Date(Date.now() +  9*3600000).toISOString(), tempC: 13.1, icon: "cloudy", precipProbabilityPct: 18, precipMm: 0, windKmh: 7 },
+                { t: new Date(Date.now() + 10*3600000).toISOString(), tempC: 12.8, icon: "cloudy", precipProbabilityPct: 15, precipMm: 0, windKmh: 6 },
+                { t: new Date(Date.now() + 11*3600000).toISOString(), tempC: 12.5, icon: "clear", precipProbabilityPct: 10, precipMm: 0, windKmh: 5 },
+                { t: new Date(Date.now() + 12*3600000).toISOString(), tempC: 12.3, icon: "clear", precipProbabilityPct: 8, precipMm: 0, windKmh: 5 },
+                { t: new Date(Date.now() + 13*3600000).toISOString(), tempC: 12.1, icon: "clear", precipProbabilityPct: 8, precipMm: 0, windKmh: 4 },
+                { t: new Date(Date.now() + 14*3600000).toISOString(), tempC: 12.4, icon: "clear", precipProbabilityPct: 6, precipMm: 0, windKmh: 4 },
+                { t: new Date(Date.now() + 15*3600000).toISOString(), tempC: 13.2, icon: "clear", precipProbabilityPct: 5, precipMm: 0, windKmh: 5 },
+                { t: new Date(Date.now() + 16*3600000).toISOString(), tempC: 14.5, icon: "partly-cloudy", precipProbabilityPct: 8, precipMm: 0, windKmh: 6 },
+                { t: new Date(Date.now() + 17*3600000).toISOString(), tempC: 16.1, icon: "partly-cloudy", precipProbabilityPct: 10, precipMm: 0, windKmh: 7 },
+                { t: new Date(Date.now() + 18*3600000).toISOString(), tempC: 17.8, icon: "partly-cloudy", precipProbabilityPct: 12, precipMm: 0, windKmh: 8 },
+                { t: new Date(Date.now() + 19*3600000).toISOString(), tempC: 19.2, icon: "partly-cloudy", precipProbabilityPct: 15, precipMm: 0, windKmh: 9 },
+                { t: new Date(Date.now() + 20*3600000).toISOString(), tempC: 20.1, icon: "cloudy", precipProbabilityPct: 22, precipMm: 0, windKmh: 10 },
+                { t: new Date(Date.now() + 21*3600000).toISOString(), tempC: 20.5, icon: "cloudy", precipProbabilityPct: 30, precipMm: 0, windKmh: 11 },
+                { t: new Date(Date.now() + 22*3600000).toISOString(), tempC: 19.8, icon: "rain", precipProbabilityPct: 48, precipMm: .3, windKmh: 12 },
+                { t: new Date(Date.now() + 23*3600000).toISOString(), tempC: 18.6, icon: "rain", precipProbabilityPct: 55, precipMm: .5, windKmh: 13 }
+            ],
+            daily: [
+                { date: new Date(Date.now()).toISOString().slice(0, 10), minC: 12, maxC: 21, icon: "partly-cloudy", maxHourlyPrecipProbabilityPct: 72, precipMm: 2.8 },
+                { date: new Date(Date.now() + 1*86400000).toISOString().slice(0, 10), minC: 11, maxC: 22, icon: "clear", maxHourlyPrecipProbabilityPct: 12, precipMm: 0 },
+                { date: new Date(Date.now() + 2*86400000).toISOString().slice(0, 10), minC: 13, maxC: 24, icon: "clear", maxHourlyPrecipProbabilityPct: 8, precipMm: 0 },
+                { date: new Date(Date.now() + 3*86400000).toISOString().slice(0, 10), minC: 14, maxC: 20, icon: "rain", maxHourlyPrecipProbabilityPct: 80, precipMm: 5.4 },
+                { date: new Date(Date.now() + 4*86400000).toISOString().slice(0, 10), minC: 10, maxC: 18, icon: "cloudy", maxHourlyPrecipProbabilityPct: 35, precipMm: .2 },
+                { date: new Date(Date.now() + 5*86400000).toISOString().slice(0, 10), minC: 9, maxC: 19, icon: "partly-cloudy", maxHourlyPrecipProbabilityPct: 20, precipMm: 0 }
             ]
         },
         energy: {
@@ -280,8 +313,6 @@ def prepare_app(temp_root: Path) -> Path:
             text = text.replace("property bool rightView: false", "property bool rightView: true")
         if (SETTINGS_VIEW or WIFI_SETTINGS_VIEW) and qml_file.name == "CamperMain.qml":
             text = text.replace("property bool settingsOpen: false", "property bool settingsOpen: true")
-        if DESIGN in ("v1", "v2") and qml_file.name == "CamperMain.qml":
-            text = text.replace('property string designVersion: "v2"', 'property string designVersion: "' + DESIGN + '"')
         if qml_file.name == "ModernShell.qml":
             text = text.replace("property int currentPage: 0", "property int currentPage: " + str(V2_PAGE))
         if qml_file.name == "V2EnergyPage.qml":

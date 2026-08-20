@@ -240,9 +240,8 @@ Item {
         Column {
             x: 528; y: 57; width: 220; spacing: 8
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
-                Text { x: 14; y: 14; text: "Design V1"; color: visual.text; font.pixelSize: 10; font.bold: true }
-                Text { x: 14; y: 35; text: "Klassische Oberfläche"; color: visual.muted; font.pixelSize: 8 }
-                MouseArea { anchors.fill: parent; onClicked: shell.host.setDesignVersion("v1") }
+                Text { x: 14; y: 14; text: "Kanten-Gesten"; color: visual.text; font.pixelSize: 10; font.bold: true }
+                Text { x: 14; y: 35; text: "Links Favoriten · rechts Wetter"; color: visual.muted; font.pixelSize: 8 }
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { x: 14; y: 14; text: "CamperControl"; color: visual.text; font.pixelSize: 10; font.bold: true }
@@ -282,5 +281,4 @@ Item {
         dayMode: shell.dayMode
     }
 
-    Timer { interval: 1000; repeat: true; running: true; onTriggered: shell.now = new Date().getTime() }
 }

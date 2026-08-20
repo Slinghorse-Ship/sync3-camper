@@ -126,6 +126,7 @@ if [ ! -f "${APP_SOURCE}/Camper.qml" ] \
    || [ ! -f "${APP_SOURCE}/V2EnergyPage.qml" ] \
    || [ ! -f "${APP_SOURCE}/V2ClimatePage.qml" ] \
    || [ ! -f "${APP_SOURCE}/V2EdgePanels.qml" ] \
+   || [ ! -f "${APP_SOURCE}/VehicleLightOverlay.qml" ] \
    || [ ! -f "${APP_SOURCE}/Icon.png" ] \
    || [ ! -f "${APP_SOURCE}/Icon_active.png" ] \
    || [ ! -f "${APP_SOURCE}/Icon_activepressed.png" ] \
@@ -233,6 +234,24 @@ progress 43
 output "Installing Camper app..." 2
 mkdir -p "$APP_DIR" || rollback_installation
 cp -R "${APP_SOURCE}/." "$APP_DIR/" || rollback_installation
+# 3.12 ist V2-only. Bei Upgrades bleiben keine alten, nicht mehr referenzierten
+# V1-Komponenten liegen; das vollständige vorherige App-Verzeichnis wurde oben
+# bereits für den Rollback gesichert.
+rm -f \
+    "$APP_DIR/BatteryDetails.qml" \
+    "$APP_DIR/DimmerOverlay.qml" \
+    "$APP_DIR/EnergySolarDetails.qml" \
+    "$APP_DIR/LineIcon.qml" \
+    "$APP_DIR/MaxxFanDetails.qml" \
+    "$APP_DIR/MetricCard.qml" \
+    "$APP_DIR/ModernTile.qml" \
+    "$APP_DIR/ModernToggle.qml" \
+    "$APP_DIR/TemperatureDetails.qml" \
+    "$APP_DIR/VehicleLightCard.qml" \
+    "$APP_DIR/VehicleLights.qml" \
+    "$APP_DIR/VehicleLights.png" \
+    "$APP_DIR/VehicleLightsLeft-v2.png" \
+    "$APP_DIR/VehicleLightsLeft-v3.png" || rollback_installation
 chmod +x "$APP_DIR/uninstall.sh" || rollback_installation
 mv "$TMP_JSON" "$APPS_JSON" || rollback_installation
 

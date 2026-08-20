@@ -86,19 +86,14 @@ Item {
 
         Rectangle {
             x: 14; y: 12; width: 772; height: 90; radius: 13
-            color: host.panelColor; border.color: host.designVersion === "v2" ? host.fordBlue : host.lineColor
+            color: host.panelColor; border.color: host.fordBlue
             Text { x: 16; y: 13; text: "OBERFLÄCHE"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
-            Text { x: 16; y: 36; text: "Design auswählen · wird sofort und dauerhaft gespeichert"; color: host.primaryText; font.pixelSize: 12; font.bold: true }
-            Text { x: 16; y: 58; text: "V1 bleibt vollständig erhalten, V2 nutzt die moderne Camper-Shell"; color: host.secondaryText; font.pixelSize: 9 }
-            TouchButton {
-                x: 566; y: 22; width: 86; height: 48
-                label: "V1"; fontSize: 12; active: host.designVersion === "v1"
-                onClicked: host.setDesignVersion("v1")
-            }
-            TouchButton {
-                x: 662; y: 22; width: 86; height: 48
-                label: "V2"; fontSize: 12; active: host.designVersion === "v2"
-                onClicked: host.setDesignVersion("v2")
+            Text { x: 16; y: 36; text: "Transit Horizon V2"; color: host.primaryText; font.pixelSize: 12; font.bold: true }
+            Text { x: 16; y: 58; text: "Von links: Favoriten · von rechts: Wetter · ohne sichtbaren Griff"; color: host.secondaryText; font.pixelSize: 9 }
+            Rectangle {
+                x: 652; y: 22; width: 96; height: 48; radius: 11
+                color: host.dayMode ? "#dceff8" : "#102d3d"; border.color: host.fordBlue
+                Text { anchors.centerIn: parent; text: "V2"; color: host.fordBlue; font.pixelSize: 12; font.bold: true }
             }
         }
 

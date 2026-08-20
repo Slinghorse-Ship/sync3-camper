@@ -54,6 +54,18 @@ Canvas {
         if (kind === "home") {
             line(c, [[w*.13,h*.48],[x,h*.16],[w*.87,h*.48]])
             line(c, [[w*.22,h*.43],[w*.22,h*.85],[w*.43,h*.85],[w*.43,h*.61],[w*.62,h*.61],[w*.62,h*.85],[w*.78,h*.85],[w*.78,h*.43]])
+        } else if (kind === "favorite") {
+            c.beginPath()
+            for (var point = 0; point < 10; ++point) {
+                var starAngle = -Math.PI / 2 + point * Math.PI / 5
+                var starRadius = point % 2 === 0 ? w * .38 : w * .17
+                var starX = x + Math.cos(starAngle) * starRadius
+                var starY = y + Math.sin(starAngle) * starRadius
+                if (point === 0) c.moveTo(starX, starY)
+                else c.lineTo(starX, starY)
+            }
+            c.closePath()
+            c.stroke()
         } else if (kind === "light") {
             circle(c, x, y, w*.15)
             line(c,[[x,h*.04],[x,h*.23]]); line(c,[[x,h*.77],[x,h*.96]])

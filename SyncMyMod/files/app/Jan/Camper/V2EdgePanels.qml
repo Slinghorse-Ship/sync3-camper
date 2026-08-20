@@ -10,12 +10,12 @@ Item {
     property bool dayMode: false
     property int activePanel: 0 // -1 = Favoriten, 0 = geschlossen, 1 = Wetter
 
-    readonly property var currentWeather: weather && weather.current ? weather.current : ({})
     readonly property var hourlyForecast: weather && weather.hourly && weather.hourly.length
         ? weather.hourly : (weather && weather.forecast && weather.forecast.length ? weather.forecast : [])
     readonly property var dailyForecast: weather && weather.daily && weather.daily.length
         ? weather.daily : (weather && weather.dailyForecast && weather.dailyForecast.length ? weather.dailyForecast : [])
-    readonly property bool weatherAvailable: weather && weather.available === true
+    readonly property var currentWeather: currentHourly()
+    readonly property bool weatherAvailable: hourlyForecast.length > 0 || dailyForecast.length > 0
 
     CamperStyle { id: visual; dayMode: panels.dayMode }
 
@@ -43,6 +43,7 @@ Item {
 
     function temperatureText(object) {
         var value = numberFrom(object, "temperature", "temperatureC")
+        if (value === null) value = numberFrom(object, "tempC", "temp")
         return value === null ? "–°" : value.toFixed(0) + "°"
     }
 
@@ -52,21 +53,40 @@ Item {
 
     function weatherLocation() {
         if (!weather) return "Wetter"
+        if (weather.station && weather.station.name) return String(weather.station.name)
         if (typeof weather.location === "string" && weather.location.length) return weather.location
         if (weather.location && weather.location.name) return String(weather.location.name)
         return textFrom(weather, "stationName", "locationName") || "Wetter"
     }
 
     function weatherUpdatedText() {
-        var value = weather && (weather.updatedAt || weather.observedAt)
+        var value = weather && (weather.fetchedAtUtc || weather.updatedAt || weather.observedAt)
         if (!value) return ""
         var date = new Date(value)
         if (isNaN(date.getTime())) return ""
-        return "Stand " + Qt.formatTime(date, "hh:mm")
+        return "Stand " + Qt.formatTime(date, "hh:mm") + (weather.stale === true ? " · veraltet" : "")
+    }
+
+    function sunTime(key) {
+        var value = weather && weather.sun ? weather.sun[key] : null
+        if (!value) return "–"
+        var date = new Date(value)
+        return isNaN(date.getTime()) ? "–" : Qt.formatTime(date, "hh:mm")
+    }
+
+    function currentHourly() {
+        if (!hourlyForecast || !hourlyForecast.length) return ({})
+        var now = new Date().getTime()
+        for (var i = 0; i < hourlyForecast.length; ++i) {
+            var value = hourlyForecast[i] && (hourlyForecast[i].t || hourlyForecast[i].timestamp || hourlyForecast[i].time || hourlyForecast[i].validAt)
+            var time = new Date(value).getTime()
+            if (isNaN(time) || time >= now - 3600000) return hourlyForecast[i]
+        }
+        return hourlyForecast[hourlyForecast.length - 1]
     }
 
     function forecastTime(item) {
-        var value = item && (item.timestamp || item.time || item.at || item.validAt)
+        var value = item && (item.t || item.timestamp || item.time || item.at || item.validAt)
         if (!value) return textFrom(item, "label", "period") || "–"
         var date = new Date(value)
         return isNaN(date.getTime()) ? String(value) : Qt.formatTime(date, "hh:mm")
@@ -80,25 +100,29 @@ Item {
     }
 
     function minimumTemperature(item) {
-        var value = numberFrom(item, "temperatureMin", "minTemperature")
+        var value = numberFrom(item, "minC", "temperatureMin")
+        if (value === null) value = numberFrom(item, "minTemperature", "minTemperatureC")
         if (value === null) value = numberFrom(item, "minTemperatureC", "tempMin")
         return value
     }
 
     function maximumTemperature(item) {
-        var value = numberFrom(item, "temperatureMax", "maxTemperature")
+        var value = numberFrom(item, "maxC", "temperatureMax")
+        if (value === null) value = numberFrom(item, "maxTemperature", "maxTemperatureC")
         if (value === null) value = numberFrom(item, "maxTemperatureC", "tempMax")
         return value
     }
 
     function rainProbability(item) {
-        var value = numberFrom(item, "precipitationProbability", "precipitationProbabilityPercent")
+        var value = numberFrom(item, "precipProbabilityPct", "maxHourlyPrecipProbabilityPct")
+        if (value === null) value = numberFrom(item, "precipitationProbability", "precipitationProbabilityPercent")
         if (value === null) value = numberFrom(item, "rainProbability", "probabilityOfPrecipitation")
         return value
     }
 
     function rainAmount(item) {
-        var value = numberFrom(item, "precipitation", "precipitationMm")
+        var value = numberFrom(item, "precipMm", "precipitation")
+        if (value === null) value = numberFrom(item, "precipitationMm", "rr1c")
         if (value === null) value = numberFrom(item, "rr1c", "RR1c")
         return value
     }
@@ -168,7 +192,7 @@ Item {
         objectName: "v2FavoritesPanel"
         x: panels.activePanel === -1 ? 0 : -width
         y: 0
-        width: 560
+        width: 340
         height: parent.height
         z: 30
         color: visual.panel
@@ -179,8 +203,9 @@ Item {
 
         MouseArea { anchors.fill: parent }
 
-        Text { x: 20; y: 18; text: "Favoriten"; color: visual.text; font.pixelSize: 20; font.bold: true }
-        Text { x: 20; y: 45; text: "Schnellzugriff"; color: visual.muted; font.pixelSize: 9; font.bold: true }
+        V2Icon { x: 20; y: 17; width: 32; height: 32; kind: "favorite"; lineColor: visual.blue; strokeWidth: 1.8 }
+        Text { x: 62; y: 18; text: "Favoriten"; color: visual.text; font.pixelSize: 20; font.bold: true }
+        Text { x: 62; y: 45; text: "Schnellzugriff"; color: visual.muted; font.pixelSize: 9; font.bold: true }
         Rectangle { x: 20; y: 69; width: 300; height: 1; color: visual.border }
 
         Text {
@@ -247,7 +272,7 @@ Item {
         objectName: "v2WeatherPanel"
         x: panels.activePanel === 1 ? panels.width - width : panels.width
         y: 0
-        width: 340
+        width: 560
         height: parent.height
         z: 30
         color: visual.panel
@@ -274,12 +299,18 @@ Item {
                 text: {
                     var pieces = []
                     var rain = panels.rainProbability(panels.currentWeather)
-                    var wind = panels.numberFrom(panels.currentWeather, "windSpeed", "windSpeedKmh")
+                    var wind = panels.numberFrom(panels.currentWeather, "windKmh", "windSpeedKmh")
+                    if (wind === null) wind = panels.numberFrom(panels.currentWeather, "windSpeed", "wind")
                     if (rain !== null) pieces.push("Regen " + rain.toFixed(0) + " %")
                     if (wind !== null) pieces.push("Wind " + wind.toFixed(0) + " km/h")
                     return pieces.join("\n")
                 }
                 color: visual.muted; font.pixelSize: 8; lineHeight: 1.35
+            }
+            Text {
+                x: 13; y: 136; width: 128; elide: Text.ElideRight
+                text: "Sonne ↑ " + panels.sunTime("riseUtc") + "  ↓ " + panels.sunTime("setUtc")
+                color: visual.muted; font.pixelSize: 7
             }
         }
 
@@ -319,8 +350,8 @@ Item {
                     var minimum = 1000, maximum = -1000, rainMaximum = panels.chartUsesProbability() ? 100 : 0
                     var hasTemperature = false
                     for (var i = 0; i < count; ++i) {
-                        var temperature = panels.numberFrom(hourlyData[i], "temperature", "temperatureC")
-                        if (temperature === null) temperature = panels.numberFrom(hourlyData[i], "temp", "TTT")
+                        var temperature = panels.numberFrom(hourlyData[i], "tempC", "temperature")
+                        if (temperature === null) temperature = panels.numberFrom(hourlyData[i], "temperatureC", "temp")
                         if (temperature !== null) {
                             minimum = Math.min(minimum, temperature)
                             maximum = Math.max(maximum, temperature)
@@ -353,8 +384,8 @@ Item {
                         context.beginPath(); context.strokeStyle = panels.dayMode ? "#dd762e" : "#ff9c4a"; context.lineWidth = 2.2
                         var started = false
                         for (var point = 0; point < count; ++point) {
-                            var pointTemperature = panels.numberFrom(hourlyData[point], "temperature", "temperatureC")
-                            if (pointTemperature === null) pointTemperature = panels.numberFrom(hourlyData[point], "temp", "TTT")
+                            var pointTemperature = panels.numberFrom(hourlyData[point], "tempC", "temperature")
+                            if (pointTemperature === null) pointTemperature = panels.numberFrom(hourlyData[point], "temperatureC", "temp")
                             if (pointTemperature === null) continue
                             var px = left + point * step
                             var py = bottom - (pointTemperature - minimum) / (maximum - minimum) * (bottom - top)
@@ -420,9 +451,10 @@ Item {
 
         Text {
             x: 14; y: 445; width: 532; horizontalAlignment: Text.AlignRight
-            text: "Quelle: DWD Open Data · vom Cerbo bereitgestellt"
+            text: "Quelle: " + (panels.weather && panels.weather.attribution ? String(panels.weather.attribution) : "Deutscher Wetterdienst") + " · Daten vom Cerbo"
             color: visual.muted; font.pixelSize: 7
         }
+    }
 
     Rectangle {
         id: closeButton
@@ -444,13 +476,16 @@ Item {
         id: leftEdge
         objectName: "v2LeftEdgeSwipe"
         visible: panels.activePanel === 0
-        x: 0; y: 0; width: 44; height: parent.height
+        x: 0; y: 56; width: 18; height: 335
         z: 10
         property real startX: 0
+        property real startY: 0
         propagateComposedEvents: true
-        onPressed: startX = mouse.x
+        onPressed: { startX = mouse.x; startY = mouse.y }
         onReleased: {
-            if (mouse.x - startX >= 56) panels.openFavorites()
+            var dx = mouse.x - startX
+            var dy = mouse.y - startY
+            if (dx >= 48 && Math.abs(dx) > Math.abs(dy) * 1.5) panels.openFavorites()
             else mouse.accepted = false
         }
         onClicked: mouse.accepted = false
@@ -460,13 +495,16 @@ Item {
         id: rightEdge
         objectName: "v2RightEdgeSwipe"
         visible: panels.activePanel === 0
-        x: parent.width - 44; y: 0; width: 44; height: parent.height
+        x: 782; y: 56; width: 18; height: 335
         z: 10
         property real startX: 0
+        property real startY: 0
         propagateComposedEvents: true
-        onPressed: startX = mouse.x
+        onPressed: { startX = mouse.x; startY = mouse.y }
         onReleased: {
-            if (startX - mouse.x >= 56) panels.openWeather()
+            var dx = startX - mouse.x
+            var dy = mouse.y - startY
+            if (dx >= 48 && Math.abs(dx) > Math.abs(dy) * 1.5) panels.openWeather()
             else mouse.accepted = false
         }
         onClicked: mouse.accepted = false

@@ -15,6 +15,8 @@ lights = (QML / "V2LightsPage.qml").read_text(encoding="utf-8")
 energy = (QML / "V2EnergyPage.qml").read_text(encoding="utf-8")
 climate = (QML / "V2ClimatePage.qml").read_text(encoding="utf-8")
 icon = (QML / "V2Icon.qml").read_text(encoding="utf-8")
+overlay = (QML / "VehicleLightOverlay.qml").read_text(encoding="utf-8")
+api = (QML / "ApiClient.qml").read_text(encoding="utf-8")
 installer = (ROOT / "SyncMyMod" / "autoinstall.sh").read_text(encoding="utf-8")
 
 
@@ -62,9 +64,11 @@ checks = {
             "snapshot: shell.snapshot",
         )
     ),
-    "V1 shell and navigation remain selectable": (
-        'visible: root.designVersion === "v2"' in main
-        and 'visible: root.designVersion === "v1"' in main
+    "runtime is V2-only": (
+        main.count("ModernShell {") == 1
+        and "designVersion" not in shell
+        and "setDesignVersion" not in main
+        and "LineIcon {" not in main
     ),
     "all six configured light IDs are used": all(light_id in lights for light_id in light_ids),
     "light cards and photo hotspots toggle real commands": (
@@ -78,6 +82,24 @@ checks = {
         and "highBeam.manualOn" in lights
         and "highBeam.vehicleOn" in lights
         and "highBeam.outputChannel || 3" in lights
+    ),
+    "exterior light bodies use shared normalized asset coordinates": all(
+        token in overlay
+        for token in (
+            "[.3000, .1361, .5661, .1361]",
+            "[.4696, .1667, .7196, .1806]",
+            "[.6571,.0944,.0286,.0194]",
+            "[.1125,.1139,.0286,.0194]",
+            "[.7714,.0139,.0250,.0389]",
+            "[.0768,.0139,.0250,.0389]",
+            "lampBody(ctx",
+            "roofBar(ctx",
+        )
+    ),
+    "local commands are labelled SYNC without blocking Starlink": (
+        'body.origin = "sync"' in api
+        and 'origin === "vrm"' not in api
+        and 'origin == "vrm"' not in api
     ),
     "vehicle-driven high beam is outlined and manual high beam is filled": (
         'color: highBeamCard.manualOn ? "#168fca"' in lights
@@ -166,6 +188,8 @@ checks = {
             "V2LightsPage.qml",
             "V2EnergyPage.qml",
             "V2ClimatePage.qml",
+            "V2EdgePanels.qml",
+            "VehicleLightOverlay.qml",
             "transit-line-symbol-dark.png",
             "transit-line-symbol-light.png",
         )

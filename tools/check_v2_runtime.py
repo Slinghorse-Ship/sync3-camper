@@ -70,8 +70,10 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     left_edge = root.findChild(QObject, "v2LeftEdgeSwipe")
     right_edge = root.findChild(QObject, "v2RightEdgeSwipe")
     edge_close = root.findChild(QObject, "v2EdgePanelClose")
+    weather_panel = root.findChild(QObject, "v2WeatherPanel")
+    weather_chart = root.findChild(QObject, "v2Weather24HourChart")
     api = root.findChild(QObject, "camperApiClient")
-    if None in (shell, lights_page, energy_page, edge_panels, left_edge, right_edge, edge_close, api):
+    if None in (shell, lights_page, energy_page, edge_panels, left_edge, right_edge, edge_close, weather_panel, weather_chart, api):
         raise AssertionError("The V2 shell, pages or shared ApiClient were not instantiated")
     if view.width() != 800 or view.height() != 480:
         raise AssertionError("The GX Touch/SYNC reference viewport is not 800x480")
@@ -84,18 +86,26 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
         QTest.mouseClick(view, Qt.LeftButton, Qt.NoModifier, QPoint(x, y))
         QTest.qWait(100)
 
-    def swipe(start_x: int, end_x: int, y: int) -> None:
+    def swipe(start_x: int, end_x: int, y: int, end_y: int | None = None) -> None:
+        final_y = y if end_y is None else end_y
         QTest.mousePress(view, Qt.LeftButton, Qt.NoModifier, QPoint(start_x, y))
         QTest.qWait(30)
-        QTest.mouseMove(view, QPoint(end_x, y), 80)
-        QTest.mouseRelease(view, Qt.LeftButton, Qt.NoModifier, QPoint(end_x, y))
+        QTest.mouseMove(view, QPoint(end_x, final_y), 80)
+        QTest.mouseRelease(view, Qt.LeftButton, Qt.NoModifier, QPoint(end_x, final_y))
         QTest.qWait(260)
 
     checks = 0
 
     # Invisible physical-edge gestures share one mutually-exclusive host.
-    if int(left_edge.property("width")) < 44 or int(right_edge.property("width")) < 44:
-        raise AssertionError("V2 edge swipe targets are smaller than 44 pixels")
+    if (int(left_edge.property("width")), int(left_edge.property("y")), int(left_edge.property("height"))) != (18, 56, 335):
+        raise AssertionError("Left V2 edge zone does not match x 0..17 / y 56..390")
+    if (int(right_edge.property("x")), int(right_edge.property("width")), int(right_edge.property("y")), int(right_edge.property("height"))) != (782, 18, 56, 335):
+        raise AssertionError("Right V2 edge zone does not match x 782..799 / y 56..390")
+    swipe(3, 92, 30)
+    swipe(797, 708, 430)
+    swipe(3, 30, 220, 350)
+    if edge_panels.property("activePanel") != 0:
+        raise AssertionError("Header, navigation or vertical movement opened an edge panel")
     swipe(3, 92, 240)
     if edge_panels.property("activePanel") != -1:
         raise AssertionError("Left-edge swipe did not open backend favorites")
@@ -125,7 +135,13 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     swipe(797, 708, 240)
     if edge_panels.property("activePanel") != 1:
         raise AssertionError("Right-edge swipe did not open snapshot weather")
-    click(498, 34)
+    if int(weather_panel.property("width")) != 560:
+        raise AssertionError("Weather panel is not the required 560 pixels wide")
+    hourly = weather_chart.property("hourlyData")
+    hourly = hourly.toVariant() if hasattr(hourly, "toVariant") else hourly
+    if len(hourly) < 24:
+        raise AssertionError("Weather chart did not receive 24 backend hours")
+    click(274, 34)
     if edge_panels.property("activePanel") != 0:
         raise AssertionError("Shared edge-panel close control did not close weather")
     checks += 1
