@@ -93,7 +93,21 @@ Item {
                 station: { id: "PREVIEW-TIDE", name: "Pegel am See", distanceKm: 6.8 },
                 updatedUtc: new Date(Date.now() - 300000).toISOString(), stale: false, referenceLevel: "PNP",
                 nextHigh: { t: new Date(Date.now() + 2 * 3600000).toISOString(), heightM: 4.2 },
-                nextLow: { t: new Date(Date.now() + 8 * 3600000).toISOString(), heightM: 1.1 }
+                nextLow: { t: new Date(Date.now() + 8 * 3600000).toISOString(), heightM: 1.1 },
+                curve: [
+                    { t: new Date(Date.now() +  0 * 3600000).toISOString(), heightM: 3.2 },
+                    { t: new Date(Date.now() +  2 * 3600000).toISOString(), heightM: 4.2 },
+                    { t: new Date(Date.now() +  4 * 3600000).toISOString(), heightM: 3.5 },
+                    { t: new Date(Date.now() +  6 * 3600000).toISOString(), heightM: 2.1 },
+                    { t: new Date(Date.now() +  8 * 3600000).toISOString(), heightM: 1.1 },
+                    { t: new Date(Date.now() + 10 * 3600000).toISOString(), heightM: 1.8 },
+                    { t: new Date(Date.now() + 12 * 3600000).toISOString(), heightM: 3.6 },
+                    { t: new Date(Date.now() + 14 * 3600000).toISOString(), heightM: 4.4 },
+                    { t: new Date(Date.now() + 16 * 3600000).toISOString(), heightM: 3.7 },
+                    { t: new Date(Date.now() + 18 * 3600000).toISOString(), heightM: 2.2 },
+                    { t: new Date(Date.now() + 20 * 3600000).toISOString(), heightM: 1.2 },
+                    { t: new Date(Date.now() + 22 * 3600000).toISOString(), heightM: 1.9 }
+                ]
             },
             hourly: [
                 { t: new Date(Date.now()).toISOString(), tempC: 18.4, condition: "Leicht bewölkt", icon: "partly-cloudy", precipProbabilityPct: 15, precipMm: 0, windKmh: 11 },
@@ -400,7 +414,7 @@ def main() -> int:
             root.setProperty("embeddedInGlobalHost", True)
             if not WRAPPER_SMOKE_TEST:
                 root.setProperty("dayMode", DAY_MODE)
-                root.setProperty("page", PAGE)
+                root.setProperty("page", V2_PAGE)
             root.closeRequested.connect(view.close)
         view.show()
         if EDGE_PANEL in ("favorites", "weather"):

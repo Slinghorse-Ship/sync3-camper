@@ -73,6 +73,20 @@ checks = {
         and "http://" not in panels
         and "https://" not in panels
     ),
+    "optional tide curve is strictly bounded and independently scaled": all(
+        token in panels
+        for token in (
+            "function validTideCurve(data)",
+            "data.curve.length < 2 || data.curve.length > 25",
+            'typeof point.heightM !== "number"',
+            "pointTime <= previousTime",
+            "property var tideData: panels.tideCurve",
+            "panels.tideCurveAvailable && tideData.length >= 2",
+            "var tideMinimum = 1000, tideMaximum = -1000",
+            'context.strokeStyle = "#21d4d8"',
+            'text: "Tide"',
+        )
+    ),
     "weather renders 24 hours and six days": (
         'objectName: "v2Weather24HourChart"' in panels
         and "Math.min(24," in panels
@@ -204,6 +218,7 @@ checks = {
             "nextHigh:",
             "nextLow:",
             "heightM:",
+            "curve: [",
         )
     ),
     "preview keeps favorites and Home fixtures distinct": (

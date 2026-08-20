@@ -57,20 +57,21 @@ Item {
     }
 
     Item {
+        objectName: "v2EnergyPowerPane"
         x: 0; y: 49; width: 762; height: 277; visible: view.pane === 0
-        Rectangle { x: 0; y: 0; width: 497; height: 277; radius: 17; color: visual.panel; border.color: visual.border
+        Rectangle { objectName: "v2PowerChannelsCard"; x: 0; y: 0; width: 497; height: 277; radius: 17; color: visual.panel; border.color: visual.border
             Repeater {
                 model: [
-                    {number:1,id:"dc_outlets_left",name:"Links",icon:"outlet",x:13,y:13},
-                    {number:2,id:"water_pump",name:"Wasserpumpe",icon:"pump",x:173,y:13},
-                    {number:4,id:"dc_outlets_right",name:"Rechts",icon:"outlet",x:333,y:13},
-                    {number:5,id:"starlink",name:"Starlink",icon:"satellite",x:93,y:135},
-                    {number:6,id:"maxxfan_power",name:"MaxxFan",icon:"fan",x:253,y:135}
+                    {number:1,id:"dc_outlets_left",name:"Links",icon:"outlet",x:13,y:12},
+                    {number:2,id:"water_pump",name:"Wasserpumpe",icon:"pump",x:173,y:12},
+                    {number:4,id:"dc_outlets_right",name:"Rechts",icon:"outlet",x:333,y:12},
+                    {number:5,id:"starlink",name:"Starlink",icon:"satellite",x:93,y:143},
+                    {number:6,id:"maxxfan_power",name:"MaxxFan",icon:"fan",x:253,y:143}
                 ]
                 delegate: Rectangle {
                     objectName: "v2PowerChannel_" + modelData.number
                     property var channel: view.channelBy(modelData.number, modelData.id)
-                    x: modelData.x; y: modelData.y; width: 151; height: 129; radius: 15
+                    x: modelData.x; y: modelData.y; width: 151; height: 122; radius: 15
                     opacity: channel.online === false ? .48 : 1
                     color: channel.on === true ? (view.dayMode ? "#e4f7ef" : "#113027") : visual.inner
                     border.width: channel.on === true ? 2 : 1
@@ -104,6 +105,7 @@ Item {
     }
 
     Item {
+        objectName: "v2EnergySourcesPane"
         x: 0; y: 49; width: 762; height: 277; visible: view.pane === 1
         Repeater {
             model: [

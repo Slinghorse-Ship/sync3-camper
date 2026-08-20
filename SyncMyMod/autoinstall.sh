@@ -32,8 +32,13 @@ CAMERA_UPDATE_SCRIPT="${FILES_DIR}/scripts/update-camera-priority.sh"
 ROOT_EXPECTED="${FILES_DIR}/reference/Root.qml.expected"
 STATUS_EXPECTED="${FILES_DIR}/reference/StatusBarDriverTemperature.qml.expected"
 RESTORE_SOURCE="${FILES_DIR}/scripts/restore-statusbar-root.sh"
+RELEASE_MANIFEST="${FILES_DIR}/release-manifest.cksum"
+USB_ROOT="/fs/usb0"
 BACKUP_DIR="/fs/rwdata/fmods/mods/camper-complete"
-APP_BACKUP="${BACKUP_DIR}/app.transaction"
+TRANSACTION_DIR="${BACKUP_DIR}/transaction"
+ORIGINAL_DIR="${BACKUP_DIR}/original"
+ORIGINAL_STAGE="${BACKUP_DIR}/original.new"
+APP_BACKUP="${TRANSACTION_DIR}/app"
 DISPLAY="/fs/tmpfs/status"
 POPUP="/tmp/popup.txt"
 
@@ -43,6 +48,7 @@ HAD_APP=0
 HAD_BRIDGE=0
 HAD_APP_MARKER=0
 HAD_ROOT_MARKER=0
+TRANSACTION_READY=0
 
 output() {
     echo "${1}" > "$DISPLAY"
@@ -85,6 +91,32 @@ files_equal() {
     [ "$(cksum < "$1")" = "$(cksum < "$2")" ]
 }
 
+verify_release_payload() {
+    [ -f "$RELEASE_MANIFEST" ] || return 1
+    expected_count=$(sed -n 's/^# CamperControl payload entries=//p' "$RELEASE_MANIFEST")
+    case "$expected_count" in
+        ''|*[!0-9]*) return 1 ;;
+    esac
+    checked_count=0
+    while IFS=' ' read -r expected_crc expected_size relative_path; do
+        case "$expected_crc" in \#*) continue ;; esac
+        case "$expected_crc" in ''|*[!0-9]*) return 1 ;; esac
+        case "$expected_size" in ''|*[!0-9]*) return 1 ;; esac
+        case "$relative_path" in
+            DONTINDX.MSA|SyncMyMod/*) ;;
+            *) return 1 ;;
+        esac
+        case "/${relative_path}/" in *'/../'*|*'/./'*|*'//'* ) return 1 ;; esac
+        payload_file="${USB_ROOT}/${relative_path}"
+        [ -f "$payload_file" ] || return 1
+        checksum=$(cksum "$payload_file") || return 1
+        set -- $checksum
+        [ "$1" = "$expected_crc" ] && [ "$2" = "$expected_size" ] || return 1
+        checked_count=$((checked_count + 1))
+    done < "$RELEASE_MANIFEST"
+    [ "$checked_count" -eq "$expected_count" ]
+}
+
 restore_markers() {
     if [ -f /fs/mp/etc/installed_mods.txt ]; then
         if [ "$HAD_APP_MARKER" -eq 0 ]; then sed -i "/^${APP_MODNAME}$/d" /fs/mp/etc/installed_mods.txt; fi
@@ -93,18 +125,21 @@ restore_markers() {
 }
 
 rollback_installation() {
-    if [ -f "${BACKUP_DIR}/apps.json.transaction" ]; then cp "${BACKUP_DIR}/apps.json.transaction" "$APPS_JSON"; fi
-    if [ "$HAD_APP" -eq 1 ] && [ -d "$APP_BACKUP" ]; then
-        rm -Rf "$APP_DIR"
-        mkdir -p "$APP_DIR"
-        cp -R "${APP_BACKUP}/." "$APP_DIR/"
-    elif [ "$HAD_APP" -eq 0 ]; then
-        rm -Rf "$APP_DIR"
+    if [ "$TRANSACTION_READY" -eq 1 ]; then
+        if [ -f "${TRANSACTION_DIR}/apps.json" ]; then cp "${TRANSACTION_DIR}/apps.json" "$APPS_JSON"; fi
+        if [ "$HAD_APP" -eq 1 ] && [ -d "$APP_BACKUP" ]; then
+            rm -Rf "$APP_DIR"
+            mkdir -p "$APP_DIR"
+            cp -R "${APP_BACKUP}/." "$APP_DIR/"
+        elif [ "$HAD_APP" -eq 0 ]; then
+            rm -Rf "$APP_DIR"
+        fi
+        if [ -f "${TRANSACTION_DIR}/Root.qml" ]; then cp "${TRANSACTION_DIR}/Root.qml" "$ROOT_TARGET"; fi
+        if [ -f "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" ]; then cp "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" "$STATUS_TARGET"; fi
+        if [ "$HAD_BRIDGE" -eq 0 ]; then rm -Rf "$BRIDGE_DIR"; fi
+        restore_markers
     fi
-    if [ -f "${BACKUP_DIR}/Root.qml.transaction" ]; then cp "${BACKUP_DIR}/Root.qml.transaction" "$ROOT_TARGET"; fi
-    if [ -f "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction" ]; then cp "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction" "$STATUS_TARGET"; fi
-    if [ "$HAD_BRIDGE" -eq 0 ]; then rm -Rf "$BRIDGE_DIR"; fi
-    restore_markers
+    rm -Rf "$ORIGINAL_STAGE"
     remount_ro.sh
     sync; sync; sync
     displayMessage "Installation failed. App and Ford QML were restored."
@@ -116,6 +151,7 @@ MODS_TOOLS_VERSION=$(echo "$LINE" | awk -F'_' '{print $NF}')
 if ! version_at_least "$MODS_TOOLS_VERSION" "$MIN_MODTOOLS_VERSION"; then displayMessage "FMods Tools 3.3 or higher is required."; fi
 if [ ! -f /fs/mp/etc/installed_mods.txt ] || ! grep -q "${DEPENDENCY}" /fs/mp/etc/installed_mods.txt; then displayMessage "Custom Apps Loader 2.3 not found. Install it first."; fi
 if [ ! -f "$APPS_JSON" ] || [ ! -f "$ROOT_TARGET" ] || [ ! -f "$STATUS_TARGET" ]; then displayMessage "Required Ford HMI files are missing. Installation aborted."; fi
+if ! verify_release_payload; then displayMessage "Camper USB payload is incomplete or damaged. No changes made."; fi
 
 if [ ! -f "${APP_SOURCE}/Camper.qml" ] \
    || [ ! -f "${APP_SOURCE}/CamperMain.qml" ] \
@@ -219,14 +255,40 @@ if ! remount_rw.sh; then displayMessage "Unable to remount /fs/mp read-write. No
 progress 30
 output "Creating transaction backups..." 1
 mkdir -p "$BACKUP_DIR" || rollback_installation
-cp "$APPS_JSON" "${BACKUP_DIR}/apps.json.transaction" || rollback_installation
-rm -Rf "$APP_BACKUP"
+rm -Rf "$TRANSACTION_DIR"
+mkdir -p "$TRANSACTION_DIR" || rollback_installation
+cp "$APPS_JSON" "${TRANSACTION_DIR}/apps.json" || rollback_installation
 if [ "$HAD_APP" -eq 1 ]; then
     mkdir -p "$APP_BACKUP" || rollback_installation
     cp -R "${APP_DIR}/." "$APP_BACKUP/" || rollback_installation
 fi
-if [ "$ROOT_MODE" != "installed" ]; then cp "$ROOT_TARGET" "${BACKUP_DIR}/Root.qml.transaction" || rollback_installation; fi
-if [ "$ROOT_MODE" = "fresh" ] || [ "$STATUS_TOUCH_MODE" = "upgrade" ]; then cp "$STATUS_TARGET" "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction" || rollback_installation; fi
+cp "$ROOT_TARGET" "${TRANSACTION_DIR}/Root.qml" || rollback_installation
+cp "$STATUS_TARGET" "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" || rollback_installation
+TRANSACTION_READY=1
+
+# The rollback snapshot above is replaced on every attempt.  The original Ford
+# pair is a separate, write-once restore contract.  Existing 3.x installations
+# are migrated only when both legacy files exist and contain no Camper loader.
+if [ -f "${ORIGINAL_DIR}/Root.qml" ] || [ -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then
+    if [ ! -f "${ORIGINAL_DIR}/Root.qml" ] || [ ! -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then rollback_installation; fi
+else
+    rm -Rf "$ORIGINAL_DIR"
+    rm -Rf "$ORIGINAL_STAGE"
+    mkdir -p "$ORIGINAL_STAGE" || rollback_installation
+    if [ "$ROOT_MODE" = "fresh" ]; then
+        cp "$ROOT_TARGET" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation
+        cp "$STATUS_TARGET" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation
+    elif [ -f "${BACKUP_DIR}/Root.qml.transaction" ] \
+         && [ -f "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction" ] \
+         && ! grep -q "camperControlLoader" "${BACKUP_DIR}/Root.qml.transaction" \
+         && ! grep -q "CamperState.camperOpen" "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction"; then
+        cp "${BACKUP_DIR}/Root.qml.transaction" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation
+        cp "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation
+    else
+        rollback_installation
+    fi
+    mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR" || rollback_installation
+fi
 cp "$RESTORE_SOURCE" "${BACKUP_DIR}/restore-statusbar-root.sh" || rollback_installation
 chmod +x "${BACKUP_DIR}/restore-statusbar-root.sh"
 
@@ -290,6 +352,7 @@ if ! grep -q "^${ROOT_MODNAME}$" /fs/mp/etc/installed_mods.txt; then echo "$ROOT
 progress 96
 output "Setting RO permissions to FS..." 1
 remount_ro.sh
+rm -Rf "$TRANSACTION_DIR"
 sync; sync; sync
 progress 100
 output "App and Ford integration installed. Remove USB to reboot." 2

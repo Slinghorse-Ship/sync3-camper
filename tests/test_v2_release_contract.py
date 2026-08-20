@@ -30,6 +30,7 @@ LEGACY_V1_FILES = {
 }
 
 installer = (ROOT / "SyncMyMod/autoinstall.sh").read_text(encoding="utf-8")
+restore_script = (ROOT / "SyncMyMod/files/scripts/restore-statusbar-root.sh").read_text(encoding="utf-8")
 for filename in LEGACY_V1_FILES:
     if filename not in installer:
         raise AssertionError(f"Upgrade cleanup does not remove legacy V1 file {filename}")
@@ -59,5 +60,34 @@ with tempfile.TemporaryDirectory(prefix="camper-sync-release-") as directory:
             raise AssertionError("Release contains obsolete vehicle assets: " + ", ".join(sorted(vehicle_assets)))
         if not {"DONTINDX.MSA", "SyncMyMod/autoinstall.sh"}.issubset(entries):
             raise AssertionError("USB release root payload is incomplete")
+        if MODULE.MANIFEST_PATH.as_posix() not in entries:
+            raise AssertionError("USB release has no device-verifiable payload manifest")
 
-print(f"SYNC V2-only ZIP: {len(MODULE.V2_APP_PAYLOAD)} app files, deterministic, no V1 payload")
+        manifest_lines = archive.read(MODULE.MANIFEST_PATH.as_posix()).decode("ascii").splitlines()
+        manifest_entries = {}
+        expected_count = int(manifest_lines[0].removeprefix("# CamperControl payload entries="))
+        for line in manifest_lines[1:]:
+            crc, size, name = line.split(" ", 2)
+            manifest_entries[name] = (int(crc), int(size))
+        covered_entries = entries - {MODULE.MANIFEST_PATH.as_posix()}
+        if set(manifest_entries) != covered_entries or expected_count != len(covered_entries):
+            raise AssertionError("Release manifest does not cover every other ZIP entry exactly once")
+        for name, (expected_crc, expected_size) in manifest_entries.items():
+            payload = archive.read(name)
+            if len(payload) != expected_size or MODULE.posix_cksum(payload) != expected_crc:
+                raise AssertionError(f"Release manifest checksum mismatch for {name}")
+
+if "verify_release_payload" not in installer or 'cksum "$payload_file"' not in installer:
+    raise AssertionError("Device installer does not verify the complete release manifest")
+if 'BACKUP_DIR="/fs/rwdata/fmods/mods/camper-complete/original"' not in restore_script:
+    raise AssertionError("Restore script does not use the installer original-backup contract")
+if any(token in restore_script for token in ("camper-statusbar", ".before")):
+    raise AssertionError("Restore script still references the obsolete backup contract")
+if not all(token in installer for token in (
+    "TRANSACTION_DIR=", "ORIGINAL_DIR=", "ORIGINAL_STAGE=", "TRANSACTION_READY=0",
+    'if [ "$TRANSACTION_READY" -eq 1 ]', "TRANSACTION_READY=1",
+    'mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR"', 'rm -Rf "$TRANSACTION_DIR"',
+)):
+    raise AssertionError("Installer does not separate ephemeral rollback from write-once originals")
+
+print(f"SYNC V2-only ZIP: {len(MODULE.V2_APP_PAYLOAD)} app files, deterministic, fully manifested, no V1 payload")

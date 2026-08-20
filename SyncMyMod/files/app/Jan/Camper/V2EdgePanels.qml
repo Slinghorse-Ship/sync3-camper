@@ -21,6 +21,8 @@ Item {
     readonly property bool weatherAvailable: hourlyForecast.length > 0 || dailyForecast.length > 0
     readonly property var tides: weather && weather.tides && typeof weather.tides === "object" ? weather.tides : null
     readonly property bool tidesAvailable: validTides(tides)
+    readonly property bool tideCurveAvailable: validTideCurve(tides)
+    readonly property var tideCurve: tideCurveAvailable ? tides.curve : []
 
     CamperStyle { id: visual; dayMode: panels.dayMode }
 
@@ -98,6 +100,22 @@ Item {
         if (!station || typeof station !== "object" || !station.id || !station.name
                 || !validNumber(station.distanceKm)) return false
         return validTideEvent(data.nextHigh) && validTideEvent(data.nextLow)
+    }
+
+    function validTideCurve(data) {
+        if (!validTides(data) || !data.curve || typeof data.curve.length !== "number"
+                || data.curve.length < 2 || data.curve.length > 25) return false
+        var previousTime = -1
+        for (var i = 0; i < data.curve.length; ++i) {
+            var point = data.curve[i]
+            if (!point || typeof point !== "object" || !validIsoTimestamp(point.t)
+                    || typeof point.heightM !== "number" || !isFinite(point.heightM)
+                    || point.heightM < -20 || point.heightM > 20) return false
+            var pointTime = new Date(point.t).getTime()
+            if (pointTime <= previousTime) return false
+            previousTime = pointTime
+        }
+        return true
     }
 
     function tideEventText(label, event, markStale) {
@@ -431,19 +449,23 @@ Item {
             color: visual.inner; border.color: visual.border
             Text { x: 11; y: 8; text: "Nächste 24 Stunden"; color: visual.text; font.pixelSize: 9; font.bold: true }
             Row {
-                x: 236; y: 8; spacing: 9
+                x: 180; y: 8; spacing: 6
                 Rectangle { width: 9; height: 3; radius: 2; color: visual.orange; anchors.verticalCenter: parent.verticalCenter }
                 Text { text: "Temperatur"; color: visual.muted; font.pixelSize: 7 }
                 Rectangle { width: 9; height: 7; radius: 1; color: visual.blue; opacity: .55; anchors.verticalCenter: parent.verticalCenter }
                 Text { text: panels.chartRainLabel(); color: visual.muted; font.pixelSize: 7 }
+                Rectangle { visible: panels.tideCurveAvailable; width: visible ? 9 : 0; height: 3; radius: 2; color: "#21d4d8"; anchors.verticalCenter: parent.verticalCenter }
+                Text { visible: panels.tideCurveAvailable; text: "Tide"; color: visual.muted; font.pixelSize: 7 }
             }
             Canvas {
                 id: weatherChart
                 objectName: "v2Weather24HourChart"
                 x: 9; y: 27; width: 350; height: 116
                 property var hourlyData: panels.hourlyForecast
+                property var tideData: panels.tideCurve
                 property bool dayPalette: panels.dayMode
                 onHourlyDataChanged: requestPaint()
+                onTideDataChanged: requestPaint()
                 onDayPaletteChanged: requestPaint()
                 onPaint: {
                     var context = getContext("2d")
@@ -496,6 +518,40 @@ Item {
                             if (!started) { context.moveTo(px, py); started = true } else context.lineTo(px, py)
                         }
                         context.stroke()
+                    }
+                    if (panels.tideCurveAvailable && tideData.length >= 2) {
+                        var tideMinimum = 1000, tideMaximum = -1000
+                        for (var tideRange = 0; tideRange < tideData.length; ++tideRange) {
+                            tideMinimum = Math.min(tideMinimum, tideData[tideRange].heightM)
+                            tideMaximum = Math.max(tideMaximum, tideData[tideRange].heightM)
+                        }
+                        if (tideMaximum - tideMinimum < .2) {
+                            tideMaximum += .1
+                            tideMinimum -= .1
+                        } else {
+                            var tidePadding = (tideMaximum - tideMinimum) * .08
+                            tideMaximum += tidePadding
+                            tideMinimum -= tidePadding
+                        }
+                        var chartStart = new Date(hourlyData[0].t || hourlyData[0].timestamp || hourlyData[0].time || hourlyData[0].validAt).getTime()
+                        var chartEndItem = hourlyData[count - 1]
+                        var chartEnd = new Date(chartEndItem.t || chartEndItem.timestamp || chartEndItem.time || chartEndItem.validAt).getTime()
+                        if (isNaN(chartStart) || isNaN(chartEnd) || chartEnd <= chartStart) {
+                            chartStart = new Date(tideData[0].t).getTime()
+                            chartEnd = new Date(tideData[tideData.length - 1].t).getTime()
+                        }
+                        context.beginPath()
+                        context.strokeStyle = "#21d4d8"
+                        context.lineWidth = 1.8
+                        var tideStarted = false
+                        for (var tidePoint = 0; tidePoint < tideData.length; ++tidePoint) {
+                            var tideTime = new Date(tideData[tidePoint].t).getTime()
+                            if (tideTime < chartStart || tideTime > chartEnd) continue
+                            var tideX = left + (tideTime - chartStart) / (chartEnd - chartStart) * (right - left)
+                            var tideY = bottom - (tideData[tidePoint].heightM - tideMinimum) / (tideMaximum - tideMinimum) * (bottom - top)
+                            if (!tideStarted) { context.moveTo(tideX, tideY); tideStarted = true } else context.lineTo(tideX, tideY)
+                        }
+                        if (tideStarted) context.stroke()
                     }
                     context.fillStyle = panels.dayMode ? "#61727c" : "#8fa2af"; context.font = "7px sans-serif"
                     var marks = count >= 24 ? [0, 6, 12, 18, 23] : [0, Math.floor((count - 1) / 2), count - 1]

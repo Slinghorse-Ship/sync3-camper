@@ -209,9 +209,9 @@ Item {
         Repeater {
             model: [
                 {zone:"inside",name:"Innen",icon:"cabinLight",row:0,col:0},
-                {zone:"left",name:"Links",icon:"sideLeft",row:0,col:1},
-                {zone:"right",name:"Rechts",icon:"sideRight",row:1,col:0},
-                {zone:"rear",name:"Hinten",icon:"rearLight",row:1,col:1}
+                {zone:"rear",name:"Hinten",icon:"rearLight",row:0,col:1},
+                {zone:"left",name:"Links",icon:"sideLeft",row:1,col:0},
+                {zone:"right",name:"Rechts",icon:"sideRight",row:1,col:1}
             ]
             delegate: Rectangle {
                 objectName: "v2LightZone_" + modelData.zone

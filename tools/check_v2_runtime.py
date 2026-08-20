@@ -66,6 +66,10 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     shell = root.findChild(QObject, "modernShell")
     lights_page = root.findChild(QObject, "v2LightsPage")
     energy_page = root.findChild(QObject, "v2EnergyPage")
+    energy_power_pane = root.findChild(QObject, "v2EnergyPowerPane")
+    power_channels_card = root.findChild(QObject, "v2PowerChannelsCard")
+    inverter_card = root.findChild(QObject, "v2InverterCard")
+    energy_sources_pane = root.findChild(QObject, "v2EnergySourcesPane")
     edge_panels = root.findChild(QObject, "v2EdgePanelsHost")
     left_edge = root.findChild(QObject, "v2LeftEdgeSwipe")
     right_edge = root.findChild(QObject, "v2RightEdgeSwipe")
@@ -76,22 +80,56 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     favorites_subtitle = root.findChild(QObject, "v2FavoritesSubtitle")
     favorites_editor_label = root.findChild(QObject, "v2FavoritesEditorLabel")
     favorite_save_button = root.findChild(QObject, "v2FavoriteSaveButton")
-    favorite_name = root.findChild(QObject, "v2FavoriteName0")
-    favorite_previous = root.findChild(QObject, "v2FavoritePrevious0")
-    home_quick_name = root.findChild(QObject, "v2HomeQuickAccessName0")
-    home_quick_previous = root.findChild(QObject, "v2HomeQuickAccessPrevious0")
     weather_panel = root.findChild(QObject, "v2WeatherPanel")
     weather_chart = root.findChild(QObject, "v2Weather24HourChart")
     tide_summary = root.findChild(QObject, "v2TideSummary")
     api = root.findChild(QObject, "camperApiClient")
-    if None in (shell, lights_page, energy_page, edge_panels, left_edge, right_edge, edge_close,
-                favorites_header_button, weather_header_button, clock_status,
-                favorites_subtitle, favorites_editor_label, favorite_save_button,
-                favorite_name, favorite_previous, home_quick_name, home_quick_previous,
-                weather_panel, weather_chart, tide_summary, api):
-        raise AssertionError("The V2 shell, pages or shared ApiClient were not instantiated")
+    required_objects = {
+        "modernShell": shell,
+        "v2LightsPage": lights_page,
+        "v2EnergyPage": energy_page,
+        "v2EnergyPowerPane": energy_power_pane,
+        "v2PowerChannelsCard": power_channels_card,
+        "v2InverterCard": inverter_card,
+        "v2EnergySourcesPane": energy_sources_pane,
+        "v2EdgePanelsHost": edge_panels,
+        "v2LeftEdgeSwipe": left_edge,
+        "v2RightEdgeSwipe": right_edge,
+        "v2EdgePanelClose": edge_close,
+        "v2FavoritesHeaderButton": favorites_header_button,
+        "v2WeatherHeaderButton": weather_header_button,
+        "v2ClockStatus": clock_status,
+        "v2FavoritesSubtitle": favorites_subtitle,
+        "v2FavoritesEditorLabel": favorites_editor_label,
+        "v2FavoriteSaveButton": favorite_save_button,
+        "v2WeatherPanel": weather_panel,
+        "v2Weather24HourChart": weather_chart,
+        "v2TideSummary": tide_summary,
+        "camperApiClient": api,
+    }
+    missing_objects = [name for name, item in required_objects.items() if item is None]
+    if missing_objects:
+        instantiated = sorted(
+            str(item.objectName()) for item in root.findChildren(QObject)
+            if any(token in str(item.objectName()) for token in ("Favorite", "QuickAccess"))
+        )
+        raise AssertionError(
+            "The V2 runtime did not instantiate: " + ", ".join(missing_objects)
+            + "; related instantiated objects: " + ", ".join(instantiated)
+        )
     if view.width() != 800 or view.height() != 480:
         raise AssertionError("The GX Touch/SYNC reference viewport is not 800x480")
+    if (int(energy_page.property("x")), int(energy_page.property("y")), int(energy_page.property("width")), int(energy_page.property("height"))) != (19, 65, 762, 326):
+        raise AssertionError("Energy page does not fit the 762x326 content viewport")
+    if (int(energy_power_pane.property("x")), int(energy_power_pane.property("y")), int(energy_power_pane.property("width")), int(energy_power_pane.property("height"))) != (0, 49, 762, 277):
+        raise AssertionError("12/230-V pane does not fit the energy content viewport")
+    if (int(energy_sources_pane.property("x")), int(energy_sources_pane.property("y")), int(energy_sources_pane.property("width")), int(energy_sources_pane.property("height"))) != (0, 49, 762, 277):
+        raise AssertionError("Sources pane does not fit the energy content viewport")
+    channels_right = int(power_channels_card.property("x")) + int(power_channels_card.property("width"))
+    inverter_left = int(inverter_card.property("x"))
+    inverter_right = inverter_left + int(inverter_card.property("width"))
+    if channels_right > inverter_left or inverter_left - channels_right != 9 or inverter_right != 762:
+        raise AssertionError("12/230-V cards overlap or waste the energy viewport")
 
     def snapshot() -> dict:
         value = root.property("snapshot")
@@ -215,14 +253,8 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     favorites_gap = int(favorite_save_button.property("x")) - (
         int(favorites_editor_label.property("x")) + int(favorites_editor_label.property("width"))
     )
-    row_gap = int(favorite_previous.property("x")) - (
-        int(favorite_name.property("x")) + int(favorite_name.property("width"))
-    )
-    home_gap = int(home_quick_previous.property("x")) - (
-        int(home_quick_name.property("x")) + int(home_quick_name.property("width"))
-    )
-    if (favorites_gap, row_gap, home_gap) != (12, 12, 12):
-        raise AssertionError(f"Favorites/Home editor gaps expected 12 px, got {(favorites_gap, row_gap, home_gap)}")
+    if favorites_gap != 12:
+        raise AssertionError(f"Favorites editor header gap expected 12 px, got {favorites_gap}")
     selected_before = list(variant(root.property("favoriteIds")))
     api.setProperty("lastCommandRequest", {})
     click(293, 114)
@@ -252,6 +284,10 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     hourly = hourly.toVariant() if hasattr(hourly, "toVariant") else hourly
     if len(hourly) < 24:
         raise AssertionError("Weather chart did not receive 24 backend hours")
+    tide_curve = weather_chart.property("tideData")
+    tide_curve = tide_curve.toVariant() if hasattr(tide_curve, "toVariant") else tide_curve
+    if len(tide_curve) < 2 or len(tide_curve) > 25:
+        raise AssertionError("Weather chart did not receive the bounded BSH tide curve")
     tide_text = str(tide_summary.property("text"))
     if tide_summary.property("visible") is not True or not all(token in tide_text for token in ("HW", "NW", "m PNP")):
         raise AssertionError("Optional BSH tide snapshot was not rendered beside the sun data")

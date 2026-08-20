@@ -36,6 +36,7 @@ def transparent_corners(name: str) -> bool:
 
 
 native_sources = "\n".join((shell, lights, energy, climate, icon))
+light_zone_order = [lights.index('zone:"inside"'), lights.index('zone:"rear"'), lights.index('zone:"left"'), lights.index('zone:"right"')]
 light_ids = (
     "inside_main",
     "outside_left",
@@ -46,6 +47,11 @@ light_ids = (
 )
 
 checks = {
+    "light matrix is inside/rear then left/right": light_zone_order == sorted(light_zone_order)
+    and '{zone:"inside",name:"Innen",icon:"cabinLight",row:0,col:0}' in lights
+    and '{zone:"rear",name:"Hinten",icon:"rearLight",row:0,col:1}' in lights
+    and '{zone:"left",name:"Links",icon:"sideLeft",row:1,col:0}' in lights
+    and '{zone:"right",name:"Rechts",icon:"sideRight",row:1,col:1}' in lights,
     "native QML has no browser or HTML embedding": not any(
         token in native_sources for token in ("WebEngine", "WebView", ".html")
     ),

@@ -12,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = "3.12.0"
 APP_ROOT = Path("SyncMyMod/files/app/Jan/Camper")
+MANIFEST_PATH = Path("SyncMyMod/files/release-manifest.cksum")
 V2_APP_PAYLOAD = (
     "ApiClient.qml",
     "Camper.qml",
@@ -54,6 +55,32 @@ def release_files() -> list[tuple[Path, Path]]:
     return sorted(files, key=lambda pair: pair[1].as_posix())
 
 
+def posix_cksum(data: bytes) -> int:
+    """Return the CRC emitted by the POSIX/QNX ``cksum`` utility."""
+
+    crc = 0
+    for byte in data:
+        crc ^= byte << 24
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x04C11DB7) & 0xFFFFFFFF if crc & 0x80000000 else (crc << 1) & 0xFFFFFFFF
+    length = len(data)
+    while length:
+        byte = length & 0xFF
+        crc ^= byte << 24
+        for _ in range(8):
+            crc = ((crc << 1) ^ 0x04C11DB7) & 0xFFFFFFFF if crc & 0x80000000 else (crc << 1) & 0xFFFFFFFF
+        length >>= 8
+    return (~crc) & 0xFFFFFFFF
+
+
+def release_manifest(files: list[tuple[Path, Path]]) -> bytes:
+    lines = [f"# CamperControl payload entries={len(files)}"]
+    for source, relative in files:
+        data = source.read_bytes()
+        lines.append(f"{posix_cksum(data)} {len(data)} {relative.as_posix()}")
+    return ("\n".join(lines) + "\n").encode("ascii")
+
+
 def build(destination: Path) -> str:
     destination.parent.mkdir(parents=True, exist_ok=True)
     files = release_files()
@@ -63,6 +90,10 @@ def build(destination: Path) -> str:
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = (0o755 if source.suffix == ".sh" else 0o644) << 16
             archive.writestr(info, source.read_bytes())
+        manifest_info = zipfile.ZipInfo(MANIFEST_PATH.as_posix(), date_time=(2026, 8, 20, 0, 0, 0))
+        manifest_info.compress_type = zipfile.ZIP_DEFLATED
+        manifest_info.external_attr = 0o644 << 16
+        archive.writestr(manifest_info, release_manifest(files))
     digest = hashlib.sha256(destination.read_bytes()).hexdigest()
     return digest
 
@@ -79,7 +110,7 @@ def main() -> int:
     digest = build(target)
     print(f"ZIP={target}")
     print(f"SHA256={digest}")
-    print(f"FILES={len(release_files())}")
+    print(f"FILES={len(release_files()) + 1}")
     return 0
 
 
