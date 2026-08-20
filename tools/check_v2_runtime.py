@@ -286,7 +286,7 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
         raise AssertionError("Weather chart did not receive 24 backend hours")
     tide_curve = weather_chart.property("tideData")
     tide_curve = tide_curve.toVariant() if hasattr(tide_curve, "toVariant") else tide_curve
-    if len(tide_curve) < 2 or len(tide_curve) > 25:
+    if len(tide_curve) < 2 or len(tide_curve) > 27:
         raise AssertionError("Weather chart did not receive the bounded BSH tide curve")
     tide_text = str(tide_summary.property("text"))
     if tide_summary.property("visible") is not True or not all(token in tide_text for token in ("HW", "NW", "m PNP")):

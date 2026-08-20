@@ -77,12 +77,15 @@ checks = {
         token in panels
         for token in (
             "function validTideCurve(data)",
-            "data.curve.length < 2 || data.curve.length > 25",
+            "data.curve.length < 2 || data.curve.length > 27",
             'typeof point.heightM !== "number"',
             "pointTime <= previousTime",
             "property var tideData: panels.tideCurve",
             "panels.tideCurveAvailable && tideData.length >= 2",
             "var tideMinimum = 1000, tideMaximum = -1000",
+            "var chartEnd = chartStart + 24 * 60 * 60 * 1000",
+            "var tideStart = new Date(tideData[0].t).getTime()",
+            "var visibleTides = []",
             'context.strokeStyle = "#21d4d8"',
             'text: "Tide"',
         )
@@ -93,17 +96,22 @@ checks = {
         and "Math.min(6, panels.dailyForecast.length)" in panels
         and 'text: "6-Tage-Vorhersage"' in panels
     ),
-    "weather chart exposes numeric temperature and tide scales without confusing rain for snow": all(
+    "weather chart exposes scales and maps every official MOSMIX group plus defensive hail": all(
         token in panels
         for token in (
             'text: "Temperatur °C"',
             'Math.ceil(maximum) + " °C"',
             'Math.floor(minimum) + " °C"',
             'tideMaximum.toFixed(1).replace(".", ",") + " m"',
-            "(code >= 71 && code <= 79) || code === 85 || code === 86",
-            "(code >= 50 && code <= 69) || (code >= 80 && code <= 84)",
+            "code === 80 || code === 81 || code === 82",
+            "code === 83 || code === 84",
+            "code === 56 || code === 57 || code === 66 || code === 67",
+            "code === 96 || code === 99",
+            '81:"Regenschauer"',
+            '95:"Gewitter mit Regen oder Schnee"',
+            'return "weatherUnknown"',
         )
-    ),
+    ) and all(kind in icons for kind in ('kind === "weatherFreezingRain"', 'kind === "weatherSleet"', 'kind === "weatherHail"', 'kind === "weatherUnknown"')),
     "DWD attribution is permanently visible": (
         "Deutscher Wetterdienst" in panels
         and 'x: 14; y: 445; width: 532' in panels

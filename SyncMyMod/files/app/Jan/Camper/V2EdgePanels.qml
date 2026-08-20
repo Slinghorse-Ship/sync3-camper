@@ -104,7 +104,7 @@ Item {
 
     function validTideCurve(data) {
         if (!validTides(data) || !data.curve || typeof data.curve.length !== "number"
-                || data.curve.length < 2 || data.curve.length > 25) return false
+                || data.curve.length < 2 || data.curve.length > 27) return false
         var previousTime = -1
         for (var i = 0; i < data.curve.length; ++i) {
             var point = data.curve[i]
@@ -201,21 +201,53 @@ Item {
     function weatherIcon(item) {
         var value = textFrom(item, "icon", "condition")
         value = value.toLowerCase()
+        if (value.indexOf("hail") >= 0 || value.indexOf("hagel") >= 0) return "weatherHail"
         if (value.indexOf("storm") >= 0 || value.indexOf("thunder") >= 0 || value.indexOf("gewitter") >= 0) return "weatherStorm"
+        if (value.indexOf("freezing") >= 0 || value.indexOf("gefrier") >= 0 || value.indexOf("ice-rain") >= 0) return "weatherFreezingRain"
+        if (value.indexOf("sleet") >= 0 || value.indexOf("mixed") >= 0 || value.indexOf("schneeregen") >= 0) return "weatherSleet"
         if (value.indexOf("snow") >= 0 || value.indexOf("schnee") >= 0) return "weatherSnow"
-        if (value.indexOf("rain") >= 0 || value.indexOf("regen") >= 0 || value.indexOf("shower") >= 0) return "weatherRain"
+        if (value.indexOf("rain") >= 0 || value.indexOf("regen") >= 0 || value.indexOf("shower") >= 0 || value.indexOf("drizzle") >= 0 || value.indexOf("sprüh") >= 0) return "weatherRain"
         if (value.indexOf("fog") >= 0 || value.indexOf("mist") >= 0 || value.indexOf("nebel") >= 0) return "weatherFog"
         if (value.indexOf("clear") >= 0 || value.indexOf("sun") >= 0 || value.indexOf("sonn") >= 0) return "weatherClear"
         var code = numberFrom(item, "ww", "weatherCode")
         if (code !== null) {
             code = Math.round(code)
-            if (code >= 95 && code <= 99) return "weatherStorm"
-            if ((code >= 71 && code <= 79) || code === 85 || code === 86) return "weatherSnow"
-            if ((code >= 50 && code <= 69) || (code >= 80 && code <= 84)) return "weatherRain"
-            if (code >= 45 && code <= 49) return "weatherFog"
+            if (code === 96 || code === 99) return "weatherHail"
+            if (code === 95 || code === 97 || code === 98) return "weatherStorm"
+            if (code === 56 || code === 57 || code === 66 || code === 67) return "weatherFreezingRain"
+            if (code === 68 || code === 69 || code === 83 || code === 84) return "weatherSleet"
+            if (code === 71 || code === 73 || code === 75 || code === 85 || code === 86) return "weatherSnow"
+            if (code === 51 || code === 53 || code === 55 || code === 61 || code === 63 || code === 65 || code === 80 || code === 81 || code === 82) return "weatherRain"
+            if (code === 45 || code === 49) return "weatherFog"
             if (code === 0) return "weatherClear"
         }
-        return "weatherCloud"
+        return "weatherUnknown"
+    }
+
+    function weatherDescription(item) {
+        var explicit = textFrom(item, "condition", "summary")
+        if (explicit.length) return explicit
+        var code = numberFrom(item, "ww", "weatherCode")
+        if (code !== null) {
+            code = Math.round(code)
+            var descriptions = ({
+                0:"Klar", 1:"Auflockernd", 2:"Bewölkt", 3:"Zunehmend bewölkt",
+                45:"Nebel", 49:"Eisnebel",
+                51:"Leichter Sprühregen", 53:"Sprühregen", 55:"Starker Sprühregen",
+                56:"Leicht gefrierender Sprühregen", 57:"Gefrierender Sprühregen",
+                61:"Leichter Regen", 63:"Regen", 65:"Starker Regen",
+                66:"Leicht gefrierender Regen", 67:"Gefrierender Regen",
+                68:"Leichter Schneeregen", 69:"Schneeregen",
+                71:"Leichter Schneefall", 73:"Schneefall", 75:"Starker Schneefall",
+                80:"Leichter Regenschauer", 81:"Regenschauer", 82:"Heftiger Regenschauer",
+                83:"Leichter Schneeregenschauer", 84:"Schneeregenschauer",
+                85:"Leichter Schneeschauer", 86:"Schneeschauer",
+                95:"Gewitter mit Regen oder Schnee",
+                96:"Hagelgewitter", 97:"Starkes Gewitter", 98:"Gewitter", 99:"Starkes Hagelgewitter"
+            })
+            if (descriptions[code]) return descriptions[code]
+        }
+        return "Wetterlage"
     }
 
     function canActivate(item) {
@@ -416,7 +448,7 @@ Item {
             Rectangle { anchors.fill: parent; radius: 14; color: visual.inner; border.color: visual.border }
             V2Icon { x: 13; y: 12; width: 57; height: 57; kind: panels.weatherIcon(panels.currentWeather); lineColor: visual.blue; strokeWidth: 2.2 }
             Text { x: 77; y: 12; width: 68; text: panels.temperatureText(panels.currentWeather); color: visual.text; font.pixelSize: 30; font.bold: true }
-            Text { x: 13; y: 78; width: 128; elide: Text.ElideRight; text: panels.textFrom(panels.currentWeather, "condition", "summary") || "Wetterlage"; color: visual.text; font.pixelSize: 10; font.bold: true }
+            Text { x: 13; y: 78; width: 128; elide: Text.ElideRight; text: panels.weatherDescription(panels.currentWeather); color: visual.text; font.pixelSize: 10; font.bold: true }
             Text {
                 x: 13; y: 101; width: 128; height: 13; elide: Text.ElideRight
                 text: {
@@ -481,7 +513,17 @@ Item {
                     context.clearRect(0, 0, width, height)
                     var count = Math.min(24, hourlyData && hourlyData.length ? hourlyData.length : 0)
                     if (!count) return
-                    var left = 31, right = width - (panels.tideCurveAvailable ? 35 : 7), top = 9, bottom = height - 18
+                    // Leave enough room for signed two-digit "-12 °C" labels
+                    // and keep both Y scales fully inside the 800x480 canvas.
+                    var left = 43, right = width - (panels.tideCurveAvailable ? 39 : 7), top = 9, bottom = height - 18
+                    var chartStart = new Date(hourlyData[0].t || hourlyData[0].timestamp || hourlyData[0].time || hourlyData[0].validAt).getTime()
+                    if (panels.tideCurveAvailable) {
+                        var tideStart = new Date(tideData[0].t).getTime()
+                        if (!isNaN(tideStart)) chartStart = tideStart
+                    }
+                    if (isNaN(chartStart)) return
+                    var chartEnd = chartStart + 24 * 60 * 60 * 1000
+                    var chartDuration = chartEnd - chartStart
                     var minimum = 1000, maximum = -1000, rainMaximum = panels.chartUsesProbability() ? 100 : 0
                     var hasTemperature = false
                     for (var i = 0; i < count; ++i) {
@@ -505,14 +547,17 @@ Item {
                         var gy = top + grid * (bottom - top) / 2
                         context.beginPath(); context.moveTo(left, gy); context.lineTo(right, gy); context.stroke()
                     }
-                    var step = count > 1 ? (right - left) / (count - 1) : 0
+                    var hourWidth = (right - left) / 24
                     context.fillStyle = panels.dayMode ? "#4eafe4" : "#42bcff"
                     context.globalAlpha = .38
                     for (var bar = 0; bar < count; ++bar) {
                         var rainValue = panels.chartRainValue(hourlyData[bar])
                         if (rainValue === null || rainValue <= 0) continue
                         var barHeight = Math.max(2, Math.min(bottom - top, (rainValue / rainMaximum) * (bottom - top)))
-                        context.fillRect(left + bar * step - 2, bottom - barHeight, 4, barHeight)
+                        var barTime = new Date(hourlyData[bar].t || hourlyData[bar].timestamp || hourlyData[bar].time || hourlyData[bar].validAt).getTime()
+                        if (isNaN(barTime)) barTime = chartStart + bar * 60 * 60 * 1000
+                        var barX = left + Math.max(0, Math.min(1, (barTime - chartStart) / chartDuration)) * (right - left)
+                        context.fillRect(barX - Math.max(2, hourWidth * .25), bottom - barHeight, Math.max(4, hourWidth * .5), barHeight)
                     }
                     context.globalAlpha = 1
                     if (hasTemperature) {
@@ -522,7 +567,9 @@ Item {
                             var pointTemperature = panels.numberFrom(hourlyData[point], "tempC", "temperature")
                             if (pointTemperature === null) pointTemperature = panels.numberFrom(hourlyData[point], "temperatureC", "temp")
                             if (pointTemperature === null) continue
-                            var px = left + point * step
+                            var pointTime = new Date(hourlyData[point].t || hourlyData[point].timestamp || hourlyData[point].time || hourlyData[point].validAt).getTime()
+                            if (isNaN(pointTime)) pointTime = chartStart + point * 60 * 60 * 1000
+                            var px = left + Math.max(0, Math.min(1, (pointTime - chartStart) / chartDuration)) * (right - left)
                             var py = bottom - (pointTemperature - minimum) / (maximum - minimum) * (bottom - top)
                             if (!started) { context.moveTo(px, py); started = true } else context.lineTo(px, py)
                         }
@@ -530,56 +577,54 @@ Item {
                     }
                     if (panels.tideCurveAvailable && tideData.length >= 2) {
                         var tideMinimum = 1000, tideMaximum = -1000
+                        var visibleTides = []
                         for (var tideRange = 0; tideRange < tideData.length; ++tideRange) {
+                            var rangeTime = new Date(tideData[tideRange].t).getTime()
+                            if (rangeTime < chartStart || rangeTime > chartEnd) continue
+                            visibleTides.push(tideData[tideRange])
                             tideMinimum = Math.min(tideMinimum, tideData[tideRange].heightM)
                             tideMaximum = Math.max(tideMaximum, tideData[tideRange].heightM)
                         }
-                        if (tideMaximum - tideMinimum < .2) {
+                        if (visibleTides.length >= 2 && tideMaximum - tideMinimum < .2) {
                             tideMaximum += .1
                             tideMinimum -= .1
-                        } else {
+                        } else if (visibleTides.length >= 2) {
                             var tidePadding = (tideMaximum - tideMinimum) * .08
                             tideMaximum += tidePadding
                             tideMinimum -= tidePadding
-                        }
-                        var chartStart = new Date(hourlyData[0].t || hourlyData[0].timestamp || hourlyData[0].time || hourlyData[0].validAt).getTime()
-                        var chartEndItem = hourlyData[count - 1]
-                        var chartEnd = new Date(chartEndItem.t || chartEndItem.timestamp || chartEndItem.time || chartEndItem.validAt).getTime()
-                        if (isNaN(chartStart) || isNaN(chartEnd) || chartEnd <= chartStart) {
-                            chartStart = new Date(tideData[0].t).getTime()
-                            chartEnd = new Date(tideData[tideData.length - 1].t).getTime()
                         }
                         context.beginPath()
                         context.strokeStyle = "#21d4d8"
                         context.lineWidth = 1.8
                         var tideStarted = false
-                        for (var tidePoint = 0; tidePoint < tideData.length; ++tidePoint) {
-                            var tideTime = new Date(tideData[tidePoint].t).getTime()
-                            if (tideTime < chartStart || tideTime > chartEnd) continue
-                            var tideX = left + (tideTime - chartStart) / (chartEnd - chartStart) * (right - left)
-                            var tideY = bottom - (tideData[tidePoint].heightM - tideMinimum) / (tideMaximum - tideMinimum) * (bottom - top)
+                        var tideSpan = Math.max(.1, tideMaximum - tideMinimum)
+                        for (var tidePoint = 0; tidePoint < visibleTides.length; ++tidePoint) {
+                            var tideTime = new Date(visibleTides[tidePoint].t).getTime()
+                            var tideX = left + (tideTime - chartStart) / chartDuration * (right - left)
+                            var tideY = bottom - (visibleTides[tidePoint].heightM - tideMinimum) / tideSpan * (bottom - top)
                             if (!tideStarted) { context.moveTo(tideX, tideY); tideStarted = true } else context.lineTo(tideX, tideY)
                         }
                         if (tideStarted) context.stroke()
-                        context.fillStyle = "#21d4d8"
-                        context.font = "7px sans-serif"
-                        context.textAlign = "left"
-                        context.fillText(tideMaximum.toFixed(1).replace(".", ",") + " m", right + 3, top + 7)
-                        context.fillText(tideMinimum.toFixed(1).replace(".", ",") + " m", right + 3, bottom + 2)
+                        if (visibleTides.length >= 2) {
+                            context.fillStyle = "#21d4d8"
+                            context.font = "7px sans-serif"
+                            context.textAlign = "left"
+                            context.fillText(tideMaximum.toFixed(1).replace(".", ",") + " m", right + 3, top + 7)
+                            context.fillText(tideMinimum.toFixed(1).replace(".", ",") + " m", right + 3, bottom + 2)
+                        }
                     }
                     if (hasTemperature) {
                         context.fillStyle = panels.dayMode ? "#b85d20" : "#ff9c4a"
                         context.font = "7px sans-serif"
                         context.textAlign = "left"
-                        context.fillText(Math.ceil(maximum) + " °C", 1, top + 7)
-                        context.fillText(Math.floor(minimum) + " °C", 1, bottom + 2)
+                        context.fillText(Math.ceil(maximum) + " °C", 3, top + 7)
+                        context.fillText(Math.floor(minimum) + " °C", 3, bottom + 2)
                     }
                     context.fillStyle = panels.dayMode ? "#61727c" : "#8fa2af"; context.font = "7px sans-serif"
-                    var marks = count >= 24 ? [0, 6, 12, 18, 23] : [0, Math.floor((count - 1) / 2), count - 1]
+                    var marks = [0, 6, 12, 18, 24]
                     for (var mark = 0; mark < marks.length; ++mark) {
-                        var itemIndex = marks[mark]
-                        var label = panels.forecastTime(hourlyData[itemIndex])
-                        var labelX = left + itemIndex * step
+                        var label = Qt.formatTime(new Date(chartStart + marks[mark] * 60 * 60 * 1000), "hh:mm")
+                        var labelX = left + marks[mark] / 24 * (right - left)
                         if (mark === 0) context.textAlign = "left"
                         else if (mark === marks.length - 1) context.textAlign = "right"
                         else context.textAlign = "center"

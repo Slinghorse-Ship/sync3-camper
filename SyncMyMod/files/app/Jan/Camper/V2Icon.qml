@@ -141,6 +141,10 @@ Canvas {
             line(c,[[w*.66,h*.24],[w*.82,h*.24]]); line(c,[[w*.66,h*.40],[w*.77,h*.40]]); line(c,[[w*.66,h*.56],[w*.82,h*.56]])
         } else if (kind === "flame") {
             c.beginPath(); c.moveTo(x,h*.08); c.bezierCurveTo(w*.57,h*.30,w*.74,h*.35,w*.76,h*.58); c.bezierCurveTo(w*.79,h*.84,w*.59,h*.92,x,h*.92); c.bezierCurveTo(w*.29,h*.92,w*.17,h*.74,w*.24,h*.55); c.bezierCurveTo(w*.29,h*.41,w*.43,h*.50,w*.47,h*.34); c.bezierCurveTo(w*.49,h*.24,w*.43,h*.18,x,h*.08); c.stroke()
+        } else if (kind === "weatherUnknown") {
+            circle(c,x,y,w*.32)
+            c.beginPath(); c.moveTo(w*.38,h*.40); c.quadraticCurveTo(w*.45,h*.27,w*.57,h*.34); c.quadraticCurveTo(w*.69,h*.43,w*.51,h*.58); c.lineTo(w*.51,h*.67); c.stroke()
+            circle(c,w*.51,h*.78,w*.018)
         } else if (kind === "weatherClear") {
             circle(c,x,y,w*.20)
             for (var ray=0;ray<8;ray++) {
@@ -152,6 +156,14 @@ Canvas {
         } else if (kind === "weatherRain") {
             weatherCloudShape(c,w,h)
             line(c,[[w*.30,h*.76],[w*.24,h*.91]]); line(c,[[w*.52,h*.76],[w*.46,h*.91]]); line(c,[[w*.74,h*.76],[w*.68,h*.91]])
+        } else if (kind === "weatherFreezingRain") {
+            weatherCloudShape(c,w,h)
+            line(c,[[w*.30,h*.76],[w*.24,h*.91]]); line(c,[[w*.70,h*.76],[w*.64,h*.91]])
+            line(c,[[w*.45,h*.86],[w*.59,h*.86]]); line(c,[[w*.52,h*.79],[w*.52,h*.93]])
+        } else if (kind === "weatherSleet") {
+            weatherCloudShape(c,w,h)
+            line(c,[[w*.28,h*.76],[w*.22,h*.91]]); line(c,[[w*.72,h*.76],[w*.66,h*.91]])
+            line(c,[[w*.45,h*.86],[w*.59,h*.86]]); line(c,[[w*.52,h*.79],[w*.52,h*.93]])
         } else if (kind === "weatherSnow") {
             weatherCloudShape(c,w,h)
             for (var snow=0;snow<3;snow++) {
@@ -162,6 +174,9 @@ Canvas {
         } else if (kind === "weatherStorm") {
             weatherCloudShape(c,w,h)
             line(c,[[w*.55,h*.70],[w*.40,h*.86],[w*.54,h*.86],[w*.43,h*.98],[w*.70,h*.79],[w*.56,h*.79]])
+        } else if (kind === "weatherHail") {
+            weatherCloudShape(c,w,h)
+            circle(c,w*.28,h*.84,w*.045); circle(c,w*.51,h*.90,w*.045); circle(c,w*.74,h*.84,w*.045)
         } else if (kind === "weatherFog") {
             weatherCloudShape(c,w,h)
             line(c,[[w*.16,h*.77],[w*.74,h*.77]]); line(c,[[w*.27,h*.88],[w*.86,h*.88]])
