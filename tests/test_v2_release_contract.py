@@ -86,7 +86,8 @@ if any(token in restore_script for token in ("camper-statusbar", ".before")):
 if not all(token in installer for token in (
     "TRANSACTION_DIR=", "ORIGINAL_DIR=", "ORIGINAL_STAGE=", "TRANSACTION_READY=0",
     'if [ "$TRANSACTION_READY" -eq 1 ]', "TRANSACTION_READY=1",
-    'mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR"', 'rm -Rf "$TRANSACTION_DIR"',
+    'mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR"', "clear_transaction_dir() {",
+    'clear_transaction_dir || rollback_installation "transaction_unexpected_content"',
 )):
     raise AssertionError("Installer does not separate ephemeral rollback from write-once originals")
 

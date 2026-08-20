@@ -67,8 +67,8 @@ progress() {
     echo "PROGRESS ${1}" > "$DISPLAY"
 }
 
-# Keep exactly one short diagnostic snapshot.  This is deliberately overwritten
-# at every step and contains only step/result plus bounded filesystem usage.
+# Keep exactly one short diagnostic snapshot.  No storage probes or walkers:
+# filesystem probes can block indefinitely on a damaged or full APIM volume.
 write_install_log() {
     log_state="$1"
     log_reason="$2"
@@ -77,14 +77,119 @@ write_install_log() {
         echo "state=${log_state}"
         echo "step=${INSTALL_STEP}"
         echo "reason=${log_reason}"
-        echo "storage_kib:"
-        df -k /fs/rwdata /fs/mp 2>/dev/null | sed -n '1,4p'
+        echo "storage_probe=skipped_during_install"
     } > "$INSTALL_LOG" 2>/dev/null
 }
 
 mark_step() {
     INSTALL_STEP="$1"
     write_install_log "running" "none"
+}
+
+# App payloads are flat and positively enumerated.  Fixed-list unlink + rmdir
+# is bounded even if an old backup contains an unexpected directory/FIFO.  It
+# then fails fast instead of recursively walking unknown data.
+clear_known_app_dir() {
+    clear_dir="$1"
+    [ -e "$clear_dir" ] || return 0
+    [ -d "$clear_dir" ] || return 1
+    rm -f \
+        "$clear_dir/ApiClient.qml" \
+        "$clear_dir/BatteryDetails.qml" \
+        "$clear_dir/Camper.qml" \
+        "$clear_dir/CamperMain.qml" \
+        "$clear_dir/CamperStyle.qml" \
+        "$clear_dir/DimmerOverlay.qml" \
+        "$clear_dir/EnergySolarDetails.qml" \
+        "$clear_dir/Icon_active.png" \
+        "$clear_dir/Icon_activepressed.png" \
+        "$clear_dir/Icon.png" \
+        "$clear_dir/Icon.svg" \
+        "$clear_dir/LineIcon.qml" \
+        "$clear_dir/MaxxFanDetails.qml" \
+        "$clear_dir/MetricCard.qml" \
+        "$clear_dir/ModernShell.qml" \
+        "$clear_dir/ModernTile.qml" \
+        "$clear_dir/ModernToggle.qml" \
+        "$clear_dir/SettingsPanel.qml" \
+        "$clear_dir/TemperatureDetails.qml" \
+        "$clear_dir/TouchButton.qml" \
+        "$clear_dir/transit-line-symbol-dark.png" \
+        "$clear_dir/transit-line-symbol-light.png" \
+        "$clear_dir/uninstall.sh" \
+        "$clear_dir/V2ClimatePage.qml" \
+        "$clear_dir/V2EdgePanels.qml" \
+        "$clear_dir/V2EnergyPage.qml" \
+        "$clear_dir/V2Gauge.qml" \
+        "$clear_dir/V2Icon.qml" \
+        "$clear_dir/V2LightsPage.qml" \
+        "$clear_dir/VehicleLightCard.qml" \
+        "$clear_dir/VehicleLightOverlay.qml" \
+        "$clear_dir/VehicleLights.png" \
+        "$clear_dir/VehicleLights.qml" \
+        "$clear_dir/VehicleLightsLeft-v2.png" \
+        "$clear_dir/VehicleLightsLeft-v3.png" \
+        "$clear_dir/VehicleLightsLeft.png" \
+        "$clear_dir/VehicleLightsRight.png" || return 1
+    rmdir "$clear_dir" 2>/dev/null
+}
+
+copy_release_app() {
+    copy_source="$1"
+    copy_target="$2"
+    [ ! -e "$copy_target" ] || return 1
+    mkdir "$copy_target" || return 1
+    cp \
+        "$copy_source/ApiClient.qml" \
+        "$copy_source/Camper.qml" \
+        "$copy_source/CamperMain.qml" \
+        "$copy_source/CamperStyle.qml" \
+        "$copy_source/Icon.png" \
+        "$copy_source/Icon_active.png" \
+        "$copy_source/Icon_activepressed.png" \
+        "$copy_source/ModernShell.qml" \
+        "$copy_source/SettingsPanel.qml" \
+        "$copy_source/TouchButton.qml" \
+        "$copy_source/transit-line-symbol-dark.png" \
+        "$copy_source/transit-line-symbol-light.png" \
+        "$copy_source/uninstall.sh" \
+        "$copy_source/V2ClimatePage.qml" \
+        "$copy_source/V2EdgePanels.qml" \
+        "$copy_source/V2EnergyPage.qml" \
+        "$copy_source/V2Gauge.qml" \
+        "$copy_source/V2Icon.qml" \
+        "$copy_source/V2LightsPage.qml" \
+        "$copy_source/VehicleLightOverlay.qml" \
+        "$copy_source/VehicleLightsLeft.png" \
+        "$copy_source/VehicleLightsRight.png" \
+        "$copy_target/" || return 1
+}
+
+clear_transaction_dir() {
+    [ -e "$TRANSACTION_DIR" ] || return 0
+    [ -d "$TRANSACTION_DIR" ] || return 1
+    if [ -e "${TRANSACTION_DIR}/app" ]; then
+        clear_known_app_dir "${TRANSACTION_DIR}/app" || return 1
+    fi
+    rm -f \
+        "${TRANSACTION_DIR}/apps.json" \
+        "${TRANSACTION_DIR}/Root.qml" \
+        "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" || return 1
+    rmdir "$TRANSACTION_DIR" 2>/dev/null
+}
+
+clear_original_stage() {
+    [ -e "$ORIGINAL_STAGE" ] || return 0
+    [ -d "$ORIGINAL_STAGE" ] || return 1
+    rm -f "${ORIGINAL_STAGE}/Root.qml" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || return 1
+    rmdir "$ORIGINAL_STAGE" 2>/dev/null
+}
+
+clear_bridge_dir() {
+    [ -e "$BRIDGE_DIR" ] || return 0
+    [ -d "$BRIDGE_DIR" ] || return 1
+    rm -f "${BRIDGE_DIR}/CamperState.qml" "${BRIDGE_DIR}/qmldir" || return 1
+    rmdir "$BRIDGE_DIR" 2>/dev/null
 }
 
 displayMessage() {
@@ -155,21 +260,21 @@ restore_markers() {
 rollback_installation() {
     rollback_reason="${1:-unspecified}"
     write_install_log "failed" "$rollback_reason"
+    output "ERROR ${INSTALL_STEP}: ${rollback_reason}" 1
     if [ "$TRANSACTION_READY" -eq 1 ]; then
         if [ -f "${TRANSACTION_DIR}/apps.json" ]; then cp "${TRANSACTION_DIR}/apps.json" "$APPS_JSON"; fi
         if [ -f "${TRANSACTION_DIR}/Root.qml" ]; then cp "${TRANSACTION_DIR}/Root.qml" "$ROOT_TARGET"; fi
         if [ -f "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" ]; then cp "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" "$STATUS_TARGET"; fi
-        if [ "$HAD_BRIDGE" -eq 0 ]; then rm -Rf "$BRIDGE_DIR"; fi
+        if [ "$HAD_BRIDGE" -eq 0 ]; then clear_bridge_dir; fi
         restore_markers
     fi
-    rm -Rf "$APP_STAGE"
+    clear_known_app_dir "$APP_STAGE"
     if [ "$APP_SWAP_STARTED" -eq 1 ]; then
-        rm -Rf "$APP_DIR"
+        clear_known_app_dir "$APP_DIR"
         if [ "$HAD_APP" -eq 1 ] && [ -d "$APP_OLD" ]; then mv "$APP_OLD" "$APP_DIR"; fi
     fi
-    rm -Rf "$ORIGINAL_STAGE"
+    clear_original_stage
     remount_ro.sh
-    sync; sync; sync
     displayMessage "Installation failed at ${INSTALL_STEP} (${rollback_reason}). Previous version restored."
 }
 
@@ -281,7 +386,7 @@ output "Setting RW permissions to FS..." 1
 if ! remount_rw.sh; then displayMessage "Unable to remount /fs/mp read-write. No changes made."; fi
 
 progress 30
-output "Preparing bounded rollback data..." 1
+output "30/1 Checking rollback paths..." 1
 mkdir -p "$BACKUP_DIR" || rollback_installation "backup_dir_create"
 
 # Recover a completed same-filesystem swap if power was lost before the old
@@ -289,18 +394,18 @@ mkdir -p "$BACKUP_DIR" || rollback_installation "backup_dir_create"
 if [ ! -d "$APP_DIR" ] && [ -d "$APP_OLD" ]; then
     mv "$APP_OLD" "$APP_DIR" || rollback_installation "stale_app_restore"
     HAD_APP=1
-elif [ -d "$APP_DIR" ] && [ -d "$APP_OLD" ]; then
-    rm -Rf "$APP_OLD" || rollback_installation "stale_app_cleanup"
 fi
 
 # The original Ford pair is a separate, write-once restore contract.  Establish
 # it before deleting legacy 3.x backups or writing the bounded transaction.
+progress 32
+output "30/2 Checking original Ford restore pair..." 1
 mark_step "original-backup"
 if [ -f "${ORIGINAL_DIR}/Root.qml" ] || [ -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then
     if [ ! -f "${ORIGINAL_DIR}/Root.qml" ] || [ ! -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then rollback_installation "original_backup_partial"; fi
 else
-    rm -Rf "$ORIGINAL_DIR"
-    rm -Rf "$ORIGINAL_STAGE"
+    if [ -d "$ORIGINAL_DIR" ]; then rmdir "$ORIGINAL_DIR" 2>/dev/null || rollback_installation "original_dir_unexpected_content"; fi
+    clear_original_stage || rollback_installation "original_stage_unexpected_content"
     mkdir -p "$ORIGINAL_STAGE" || rollback_installation "original_stage_create"
     if [ "$ROOT_MODE" = "fresh" ]; then
         cp "$ROOT_TARGET" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation "original_root_copy"
@@ -323,11 +428,16 @@ fi
 
 # A successful original migration makes all old full-app and *.transaction
 # copies obsolete.  Removing these exact paths prevents /fs/rwdata growth.
-rm -Rf "$LEGACY_APP_BACKUP" || rollback_installation "legacy_app_backup_cleanup"
+progress 34
+output "30/3 Cleaning known legacy backup files..." 1
+mark_step "legacy-cleanup"
+clear_known_app_dir "$LEGACY_APP_BACKUP" || rollback_installation "legacy_app_unexpected_content"
 rm -f "$LEGACY_APPS_BACKUP" "$LEGACY_ROOT_BACKUP" "$LEGACY_STATUS_BACKUP" || rollback_installation "legacy_backup_cleanup"
 
+progress 37
+output "30/4 Replacing small transaction snapshot..." 1
 mark_step "transaction-backup"
-rm -Rf "$TRANSACTION_DIR" || rollback_installation "transaction_cleanup"
+clear_transaction_dir || rollback_installation "transaction_unexpected_content"
 mkdir -p "$TRANSACTION_DIR" || rollback_installation "transaction_create"
 cp "$APPS_JSON" "${TRANSACTION_DIR}/apps.json" || rollback_installation "transaction_apps_copy"
 cp "$ROOT_TARGET" "${TRANSACTION_DIR}/Root.qml" || rollback_installation "transaction_root_copy"
@@ -339,8 +449,8 @@ chmod +x "${BACKUP_DIR}/restore-statusbar-root.sh" || rollback_installation "res
 progress 43
 output "Staging Camper app on Ford filesystem..." 2
 mark_step "app-stage"
-rm -Rf "$APP_STAGE" || rollback_installation "app_stage_cleanup"
-cp -R "$APP_SOURCE" "$APP_STAGE" || rollback_installation "app_stage_copy"
+clear_known_app_dir "$APP_STAGE" || rollback_installation "app_stage_unexpected_content"
+copy_release_app "$APP_SOURCE" "$APP_STAGE" || rollback_installation "app_stage_copy"
 # 3.12 is V2-only.  Clean the candidate before its atomic directory swap.
 rm -f \
     "$APP_STAGE/BatteryDetails.qml" \
@@ -360,7 +470,7 @@ rm -f \
 chmod +x "$APP_STAGE/uninstall.sh" || rollback_installation "app_stage_mode"
 
 mark_step "app-swap"
-rm -Rf "$APP_OLD" || rollback_installation "app_old_cleanup"
+clear_known_app_dir "$APP_OLD" || rollback_installation "app_old_unexpected_content"
 if [ "$HAD_APP" -eq 1 ]; then
     mv "$APP_DIR" "$APP_OLD" || rollback_installation "app_old_activate"
 fi
@@ -411,12 +521,11 @@ output "Setting RO permissions to FS..." 1
 mark_step "finalize"
 # The new directory is live.  Old app data was only a same-filesystem rename,
 # never a second persistent copy in /fs/rwdata.
-rm -Rf "$APP_OLD"
+clear_known_app_dir "$APP_OLD"
 APP_SWAP_STARTED=0
-rm -Rf "$APP_STAGE"
-rm -Rf "$TRANSACTION_DIR"
+clear_known_app_dir "$APP_STAGE"
+clear_transaction_dir
 remount_ro.sh
-sync; sync; sync
 INSTALL_STEP="complete"
 write_install_log "success" "none"
 progress 100
