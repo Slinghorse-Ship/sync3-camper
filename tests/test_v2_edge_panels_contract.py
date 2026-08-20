@@ -93,6 +93,17 @@ checks = {
         and "Math.min(6, panels.dailyForecast.length)" in panels
         and 'text: "6-Tage-Vorhersage"' in panels
     ),
+    "weather chart exposes numeric temperature and tide scales without confusing rain for snow": all(
+        token in panels
+        for token in (
+            'text: "Temperatur °C"',
+            'Math.ceil(maximum) + " °C"',
+            'Math.floor(minimum) + " °C"',
+            'tideMaximum.toFixed(1).replace(".", ",") + " m"',
+            "(code >= 71 && code <= 79) || code === 85 || code === 86",
+            "(code >= 50 && code <= 69) || (code >= 80 && code <= 84)",
+        )
+    ),
     "DWD attribution is permanently visible": (
         "Deutscher Wetterdienst" in panels
         and 'x: 14; y: 445; width: 532' in panels

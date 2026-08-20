@@ -206,6 +206,15 @@ Item {
         if (value.indexOf("rain") >= 0 || value.indexOf("regen") >= 0 || value.indexOf("shower") >= 0) return "weatherRain"
         if (value.indexOf("fog") >= 0 || value.indexOf("mist") >= 0 || value.indexOf("nebel") >= 0) return "weatherFog"
         if (value.indexOf("clear") >= 0 || value.indexOf("sun") >= 0 || value.indexOf("sonn") >= 0) return "weatherClear"
+        var code = numberFrom(item, "ww", "weatherCode")
+        if (code !== null) {
+            code = Math.round(code)
+            if (code >= 95 && code <= 99) return "weatherStorm"
+            if ((code >= 71 && code <= 79) || code === 85 || code === 86) return "weatherSnow"
+            if ((code >= 50 && code <= 69) || (code >= 80 && code <= 84)) return "weatherRain"
+            if (code >= 45 && code <= 49) return "weatherFog"
+            if (code === 0) return "weatherClear"
+        }
         return "weatherCloud"
     }
 
@@ -451,7 +460,7 @@ Item {
             Row {
                 x: 180; y: 8; spacing: 6
                 Rectangle { width: 9; height: 3; radius: 2; color: visual.orange; anchors.verticalCenter: parent.verticalCenter }
-                Text { text: "Temperatur"; color: visual.muted; font.pixelSize: 7 }
+                Text { text: "Temperatur °C"; color: visual.muted; font.pixelSize: 7 }
                 Rectangle { width: 9; height: 7; radius: 1; color: visual.blue; opacity: .55; anchors.verticalCenter: parent.verticalCenter }
                 Text { text: panels.chartRainLabel(); color: visual.muted; font.pixelSize: 7 }
                 Rectangle { visible: panels.tideCurveAvailable; width: visible ? 9 : 0; height: 3; radius: 2; color: "#21d4d8"; anchors.verticalCenter: parent.verticalCenter }
@@ -472,7 +481,7 @@ Item {
                     context.clearRect(0, 0, width, height)
                     var count = Math.min(24, hourlyData && hourlyData.length ? hourlyData.length : 0)
                     if (!count) return
-                    var left = 8, right = width - 7, top = 9, bottom = height - 18
+                    var left = 31, right = width - (panels.tideCurveAvailable ? 35 : 7), top = 9, bottom = height - 18
                     var minimum = 1000, maximum = -1000, rainMaximum = panels.chartUsesProbability() ? 100 : 0
                     var hasTemperature = false
                     for (var i = 0; i < count; ++i) {
@@ -552,6 +561,18 @@ Item {
                             if (!tideStarted) { context.moveTo(tideX, tideY); tideStarted = true } else context.lineTo(tideX, tideY)
                         }
                         if (tideStarted) context.stroke()
+                        context.fillStyle = "#21d4d8"
+                        context.font = "7px sans-serif"
+                        context.textAlign = "left"
+                        context.fillText(tideMaximum.toFixed(1).replace(".", ",") + " m", right + 3, top + 7)
+                        context.fillText(tideMinimum.toFixed(1).replace(".", ",") + " m", right + 3, bottom + 2)
+                    }
+                    if (hasTemperature) {
+                        context.fillStyle = panels.dayMode ? "#b85d20" : "#ff9c4a"
+                        context.font = "7px sans-serif"
+                        context.textAlign = "left"
+                        context.fillText(Math.ceil(maximum) + " °C", 1, top + 7)
+                        context.fillText(Math.floor(minimum) + " °C", 1, bottom + 2)
                     }
                     context.fillStyle = panels.dayMode ? "#61727c" : "#8fa2af"; context.font = "7px sans-serif"
                     var marks = count >= 24 ? [0, 6, 12, 18, 23] : [0, Math.floor((count - 1) / 2), count - 1]
