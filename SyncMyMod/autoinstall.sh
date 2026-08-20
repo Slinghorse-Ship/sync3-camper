@@ -14,6 +14,8 @@ DEPENDENCY="CUSTOM_APPS_LOADER"
 FILES_DIR="/fs/usb0/SyncMyMod/files"
 APP_SOURCE="${FILES_DIR}/app/Jan/Camper"
 APP_DIR="/fs/mp/fordhmi/qml/hmicustomapps/apps/Jan/Camper"
+APP_STAGE="${APP_DIR}.camper-new"
+APP_OLD="${APP_DIR}.camper-old"
 APPS_JSON="/fs/mp/fordhmi/qml/hmicustomapps/apps.json"
 TMP_JSON="/fs/tmpfs/camper_apps.json"
 ROOT_TARGET="/fs/mp/fordhmi/qml/Root.qml"
@@ -38,7 +40,11 @@ BACKUP_DIR="/fs/rwdata/fmods/mods/camper-complete"
 TRANSACTION_DIR="${BACKUP_DIR}/transaction"
 ORIGINAL_DIR="${BACKUP_DIR}/original"
 ORIGINAL_STAGE="${BACKUP_DIR}/original.new"
-APP_BACKUP="${TRANSACTION_DIR}/app"
+LEGACY_APP_BACKUP="${BACKUP_DIR}/app.transaction"
+LEGACY_APPS_BACKUP="${BACKUP_DIR}/apps.json.transaction"
+LEGACY_ROOT_BACKUP="${BACKUP_DIR}/Root.qml.transaction"
+LEGACY_STATUS_BACKUP="${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction"
+INSTALL_LOG="${BACKUP_DIR}/install-last.log"
 DISPLAY="/fs/tmpfs/status"
 POPUP="/tmp/popup.txt"
 
@@ -49,6 +55,8 @@ HAD_BRIDGE=0
 HAD_APP_MARKER=0
 HAD_ROOT_MARKER=0
 TRANSACTION_READY=0
+APP_SWAP_STARTED=0
+INSTALL_STEP="preflight"
 
 output() {
     echo "${1}" > "$DISPLAY"
@@ -57,6 +65,26 @@ output() {
 
 progress() {
     echo "PROGRESS ${1}" > "$DISPLAY"
+}
+
+# Keep exactly one short diagnostic snapshot.  This is deliberately overwritten
+# at every step and contains only step/result plus bounded filesystem usage.
+write_install_log() {
+    log_state="$1"
+    log_reason="$2"
+    [ -d "$BACKUP_DIR" ] || mkdir -p "$BACKUP_DIR" 2>/dev/null || return 0
+    {
+        echo "state=${log_state}"
+        echo "step=${INSTALL_STEP}"
+        echo "reason=${log_reason}"
+        echo "storage_kib:"
+        df -k /fs/rwdata /fs/mp 2>/dev/null | sed -n '1,4p'
+    } > "$INSTALL_LOG" 2>/dev/null
+}
+
+mark_step() {
+    INSTALL_STEP="$1"
+    write_install_log "running" "none"
 }
 
 displayMessage() {
@@ -125,24 +153,24 @@ restore_markers() {
 }
 
 rollback_installation() {
+    rollback_reason="${1:-unspecified}"
+    write_install_log "failed" "$rollback_reason"
     if [ "$TRANSACTION_READY" -eq 1 ]; then
         if [ -f "${TRANSACTION_DIR}/apps.json" ]; then cp "${TRANSACTION_DIR}/apps.json" "$APPS_JSON"; fi
-        if [ "$HAD_APP" -eq 1 ] && [ -d "$APP_BACKUP" ]; then
-            rm -Rf "$APP_DIR"
-            mkdir -p "$APP_DIR"
-            cp -R "${APP_BACKUP}/." "$APP_DIR/"
-        elif [ "$HAD_APP" -eq 0 ]; then
-            rm -Rf "$APP_DIR"
-        fi
         if [ -f "${TRANSACTION_DIR}/Root.qml" ]; then cp "${TRANSACTION_DIR}/Root.qml" "$ROOT_TARGET"; fi
         if [ -f "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" ]; then cp "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" "$STATUS_TARGET"; fi
         if [ "$HAD_BRIDGE" -eq 0 ]; then rm -Rf "$BRIDGE_DIR"; fi
         restore_markers
     fi
+    rm -Rf "$APP_STAGE"
+    if [ "$APP_SWAP_STARTED" -eq 1 ]; then
+        rm -Rf "$APP_DIR"
+        if [ "$HAD_APP" -eq 1 ] && [ -d "$APP_OLD" ]; then mv "$APP_OLD" "$APP_DIR"; fi
+    fi
     rm -Rf "$ORIGINAL_STAGE"
     remount_ro.sh
     sync; sync; sync
-    displayMessage "Installation failed. App and Ford QML were restored."
+    displayMessage "Installation failed at ${INSTALL_STEP} (${rollback_reason}). Previous version restored."
 }
 
 if [ ! -f /fs/rwdata/dev/mods_tools.txt ] || ! grep -q "${MODTOOLS}" /fs/rwdata/dev/mods_tools.txt; then displayMessage "FMods Tools not found. Installation aborted."; fi
@@ -253,86 +281,113 @@ output "Setting RW permissions to FS..." 1
 if ! remount_rw.sh; then displayMessage "Unable to remount /fs/mp read-write. No changes made."; fi
 
 progress 30
-output "Creating transaction backups..." 1
-mkdir -p "$BACKUP_DIR" || rollback_installation
-rm -Rf "$TRANSACTION_DIR"
-mkdir -p "$TRANSACTION_DIR" || rollback_installation
-cp "$APPS_JSON" "${TRANSACTION_DIR}/apps.json" || rollback_installation
-if [ "$HAD_APP" -eq 1 ]; then
-    mkdir -p "$APP_BACKUP" || rollback_installation
-    cp -R "${APP_DIR}/." "$APP_BACKUP/" || rollback_installation
-fi
-cp "$ROOT_TARGET" "${TRANSACTION_DIR}/Root.qml" || rollback_installation
-cp "$STATUS_TARGET" "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" || rollback_installation
-TRANSACTION_READY=1
+output "Preparing bounded rollback data..." 1
+mkdir -p "$BACKUP_DIR" || rollback_installation "backup_dir_create"
 
-# The rollback snapshot above is replaced on every attempt.  The original Ford
-# pair is a separate, write-once restore contract.  Existing 3.x installations
-# are migrated only when both legacy files exist and contain no Camper loader.
+# Recover a completed same-filesystem swap if power was lost before the old
+# directory was removed.  Never recurse through the app just to make a backup.
+if [ ! -d "$APP_DIR" ] && [ -d "$APP_OLD" ]; then
+    mv "$APP_OLD" "$APP_DIR" || rollback_installation "stale_app_restore"
+    HAD_APP=1
+elif [ -d "$APP_DIR" ] && [ -d "$APP_OLD" ]; then
+    rm -Rf "$APP_OLD" || rollback_installation "stale_app_cleanup"
+fi
+
+# The original Ford pair is a separate, write-once restore contract.  Establish
+# it before deleting legacy 3.x backups or writing the bounded transaction.
+mark_step "original-backup"
 if [ -f "${ORIGINAL_DIR}/Root.qml" ] || [ -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then
-    if [ ! -f "${ORIGINAL_DIR}/Root.qml" ] || [ ! -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then rollback_installation; fi
+    if [ ! -f "${ORIGINAL_DIR}/Root.qml" ] || [ ! -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then rollback_installation "original_backup_partial"; fi
 else
     rm -Rf "$ORIGINAL_DIR"
     rm -Rf "$ORIGINAL_STAGE"
-    mkdir -p "$ORIGINAL_STAGE" || rollback_installation
+    mkdir -p "$ORIGINAL_STAGE" || rollback_installation "original_stage_create"
     if [ "$ROOT_MODE" = "fresh" ]; then
-        cp "$ROOT_TARGET" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation
-        cp "$STATUS_TARGET" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation
-    elif [ -f "${BACKUP_DIR}/Root.qml.transaction" ] \
-         && [ -f "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction" ] \
-         && ! grep -q "camperControlLoader" "${BACKUP_DIR}/Root.qml.transaction" \
-         && ! grep -q "CamperState.camperOpen" "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction"; then
-        cp "${BACKUP_DIR}/Root.qml.transaction" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation
-        cp "${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation
+        cp "$ROOT_TARGET" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation "original_root_copy"
+        cp "$STATUS_TARGET" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation "original_status_copy"
+    elif [ -f "$LEGACY_ROOT_BACKUP" ] \
+         && [ -f "$LEGACY_STATUS_BACKUP" ] \
+         && ! grep -q "camperControlLoader" "$LEGACY_ROOT_BACKUP" \
+         && ! grep -q "CamperState.camperOpen" "$LEGACY_STATUS_BACKUP"; then
+        cp "$LEGACY_ROOT_BACKUP" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation "legacy_root_migrate"
+        cp "$LEGACY_STATUS_BACKUP" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation "legacy_status_migrate"
     else
-        rollback_installation
+        rollback_installation "original_backup_missing"
     fi
-    mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR" || rollback_installation
+    mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR" || rollback_installation "original_backup_commit"
 fi
-cp "$RESTORE_SOURCE" "${BACKUP_DIR}/restore-statusbar-root.sh" || rollback_installation
-chmod +x "${BACKUP_DIR}/restore-statusbar-root.sh"
+if grep -q "camperControlLoader" "${ORIGINAL_DIR}/Root.qml" \
+   || grep -q "CamperState.camperOpen" "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml"; then
+    rollback_installation "original_backup_invalid"
+fi
+
+# A successful original migration makes all old full-app and *.transaction
+# copies obsolete.  Removing these exact paths prevents /fs/rwdata growth.
+rm -Rf "$LEGACY_APP_BACKUP" || rollback_installation "legacy_app_backup_cleanup"
+rm -f "$LEGACY_APPS_BACKUP" "$LEGACY_ROOT_BACKUP" "$LEGACY_STATUS_BACKUP" || rollback_installation "legacy_backup_cleanup"
+
+mark_step "transaction-backup"
+rm -Rf "$TRANSACTION_DIR" || rollback_installation "transaction_cleanup"
+mkdir -p "$TRANSACTION_DIR" || rollback_installation "transaction_create"
+cp "$APPS_JSON" "${TRANSACTION_DIR}/apps.json" || rollback_installation "transaction_apps_copy"
+cp "$ROOT_TARGET" "${TRANSACTION_DIR}/Root.qml" || rollback_installation "transaction_root_copy"
+cp "$STATUS_TARGET" "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" || rollback_installation "transaction_status_copy"
+TRANSACTION_READY=1
+cp "$RESTORE_SOURCE" "${BACKUP_DIR}/restore-statusbar-root.sh" || rollback_installation "restore_script_copy"
+chmod +x "${BACKUP_DIR}/restore-statusbar-root.sh" || rollback_installation "restore_script_mode"
 
 progress 43
-output "Installing Camper app..." 2
-mkdir -p "$APP_DIR" || rollback_installation
-cp -R "${APP_SOURCE}/." "$APP_DIR/" || rollback_installation
-# 3.12 ist V2-only. Bei Upgrades bleiben keine alten, nicht mehr referenzierten
-# V1-Komponenten liegen; das vollständige vorherige App-Verzeichnis wurde oben
-# bereits für den Rollback gesichert.
+output "Staging Camper app on Ford filesystem..." 2
+mark_step "app-stage"
+rm -Rf "$APP_STAGE" || rollback_installation "app_stage_cleanup"
+cp -R "$APP_SOURCE" "$APP_STAGE" || rollback_installation "app_stage_copy"
+# 3.12 is V2-only.  Clean the candidate before its atomic directory swap.
 rm -f \
-    "$APP_DIR/BatteryDetails.qml" \
-    "$APP_DIR/DimmerOverlay.qml" \
-    "$APP_DIR/EnergySolarDetails.qml" \
-    "$APP_DIR/LineIcon.qml" \
-    "$APP_DIR/MaxxFanDetails.qml" \
-    "$APP_DIR/MetricCard.qml" \
-    "$APP_DIR/ModernTile.qml" \
-    "$APP_DIR/ModernToggle.qml" \
-    "$APP_DIR/TemperatureDetails.qml" \
-    "$APP_DIR/VehicleLightCard.qml" \
-    "$APP_DIR/VehicleLights.qml" \
-    "$APP_DIR/VehicleLights.png" \
-    "$APP_DIR/VehicleLightsLeft-v2.png" \
-    "$APP_DIR/VehicleLightsLeft-v3.png" || rollback_installation
-chmod +x "$APP_DIR/uninstall.sh" || rollback_installation
-mv "$TMP_JSON" "$APPS_JSON" || rollback_installation
+    "$APP_STAGE/BatteryDetails.qml" \
+    "$APP_STAGE/DimmerOverlay.qml" \
+    "$APP_STAGE/EnergySolarDetails.qml" \
+    "$APP_STAGE/LineIcon.qml" \
+    "$APP_STAGE/MaxxFanDetails.qml" \
+    "$APP_STAGE/MetricCard.qml" \
+    "$APP_STAGE/ModernTile.qml" \
+    "$APP_STAGE/ModernToggle.qml" \
+    "$APP_STAGE/TemperatureDetails.qml" \
+    "$APP_STAGE/VehicleLightCard.qml" \
+    "$APP_STAGE/VehicleLights.qml" \
+    "$APP_STAGE/VehicleLights.png" \
+    "$APP_STAGE/VehicleLightsLeft-v2.png" \
+    "$APP_STAGE/VehicleLightsLeft-v3.png" || rollback_installation "app_stage_v1_cleanup"
+chmod +x "$APP_STAGE/uninstall.sh" || rollback_installation "app_stage_mode"
+
+mark_step "app-swap"
+rm -Rf "$APP_OLD" || rollback_installation "app_old_cleanup"
+if [ "$HAD_APP" -eq 1 ]; then
+    mv "$APP_DIR" "$APP_OLD" || rollback_installation "app_old_activate"
+fi
+APP_SWAP_STARTED=1
+mv "$APP_STAGE" "$APP_DIR" || rollback_installation "app_candidate_activate"
+mv "$TMP_JSON" "$APPS_JSON" || rollback_installation "apps_json_activate"
 
 if [ "$ROOT_MODE" = "fresh" ]; then
     progress 58
     output "Installing Camper bridge..." 1
-    mkdir -p "$BRIDGE_DIR" || rollback_installation
-    cp "${BRIDGE_SOURCE}/CamperState.qml" "${BRIDGE_DIR}/CamperState.qml" || rollback_installation
-    cp "${BRIDGE_SOURCE}/qmldir" "${BRIDGE_DIR}/qmldir" || rollback_installation
+    mark_step "bridge-install"
+    mkdir -p "$BRIDGE_DIR" || rollback_installation "bridge_create"
+    cp "${BRIDGE_SOURCE}/CamperState.qml" "${BRIDGE_DIR}/CamperState.qml" || rollback_installation "bridge_state_copy"
+    cp "${BRIDGE_SOURCE}/qmldir" "${BRIDGE_DIR}/qmldir" || rollback_installation "bridge_qmldir_copy"
     progress 70
     output "Integrating global Root.qml..." 2
-    if ! (cd / && patch --batch --forward --ignore-whitespace -p0 < "$ROOT_PATCH" >/fs/tmpfs/camper_root_patch.log 2>&1); then rollback_installation; fi
+    mark_step "root-integration"
+    if ! (cd / && patch --batch --forward --ignore-whitespace -p0 < "$ROOT_PATCH" >/fs/tmpfs/camper_root_patch.log 2>&1); then rollback_installation "root_patch"; fi
     progress 82
     output "Adding Camper statusbar button..." 2
-    if ! (cd / && patch --batch --forward --ignore-whitespace -p0 < "$STATUS_PATCH" >/fs/tmpfs/camper_status_patch.log 2>&1); then rollback_installation; fi
+    mark_step "statusbar-integration"
+    if ! (cd / && patch --batch --forward --ignore-whitespace -p0 < "$STATUS_PATCH" >/fs/tmpfs/camper_status_patch.log 2>&1); then rollback_installation "statusbar_patch"; fi
 elif [ "$ROOT_MODE" = "upgrade" ]; then
     progress 72
     output "Updating camera priority..." 2
-    if ! sh "$CAMERA_UPDATE_SCRIPT" "$ROOT_TARGET" "/fs/tmpfs/CamperRoot.qml.new" >/fs/tmpfs/camper_camera_update.log 2>&1; then rollback_installation; fi
+    mark_step "camera-priority"
+    if ! sh "$CAMERA_UPDATE_SCRIPT" "$ROOT_TARGET" "/fs/tmpfs/CamperRoot.qml.new" >/fs/tmpfs/camper_camera_update.log 2>&1; then rollback_installation "camera_priority_update"; fi
 else
     progress 72
     output "Ford integration is already current..." 1
@@ -341,19 +396,29 @@ fi
 if [ "$STATUS_TOUCH_MODE" = "upgrade" ]; then
     progress 86
     output "Separating Camper and camera touch areas..." 2
-    if ! sh "$STATUS_TOUCH_UPDATE_SCRIPT" "$STATUS_TARGET" "/fs/tmpfs/CamperStatus.qml.new" >/fs/tmpfs/camper_status_touch.log 2>&1; then rollback_installation; fi
-    if ! mv "/fs/tmpfs/CamperStatus.qml.new" "$STATUS_TARGET"; then rollback_installation; fi
+    mark_step "statusbar-touch"
+    if ! sh "$STATUS_TOUCH_UPDATE_SCRIPT" "$STATUS_TARGET" "/fs/tmpfs/CamperStatus.qml.new" >/fs/tmpfs/camper_status_touch.log 2>&1; then rollback_installation "statusbar_touch_transform"; fi
+    if ! mv "/fs/tmpfs/CamperStatus.qml.new" "$STATUS_TARGET"; then rollback_installation "statusbar_touch_activate"; fi
 fi
 
 progress 90
-if ! grep -q "^${APP_MODNAME}$" /fs/mp/etc/installed_mods.txt; then echo "$APP_MODNAME" >> /fs/mp/etc/installed_mods.txt || rollback_installation; fi
-if ! grep -q "^${ROOT_MODNAME}$" /fs/mp/etc/installed_mods.txt; then echo "$ROOT_MODNAME" >> /fs/mp/etc/installed_mods.txt || rollback_installation; fi
+mark_step "mod-markers"
+if ! grep -q "^${APP_MODNAME}$" /fs/mp/etc/installed_mods.txt; then echo "$APP_MODNAME" >> /fs/mp/etc/installed_mods.txt || rollback_installation "app_marker"; fi
+if ! grep -q "^${ROOT_MODNAME}$" /fs/mp/etc/installed_mods.txt; then echo "$ROOT_MODNAME" >> /fs/mp/etc/installed_mods.txt || rollback_installation "root_marker"; fi
 
 progress 96
 output "Setting RO permissions to FS..." 1
-remount_ro.sh
+mark_step "finalize"
+# The new directory is live.  Old app data was only a same-filesystem rename,
+# never a second persistent copy in /fs/rwdata.
+rm -Rf "$APP_OLD"
+APP_SWAP_STARTED=0
+rm -Rf "$APP_STAGE"
 rm -Rf "$TRANSACTION_DIR"
+remount_ro.sh
 sync; sync; sync
+INSTALL_STEP="complete"
+write_install_log "success" "none"
 progress 100
 output "App and Ford integration installed. Remove USB to reboot." 2
 installationTerminated
