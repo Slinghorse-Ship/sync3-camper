@@ -41,8 +41,14 @@ required = (
     "clear_known_app_dir() {",
     "copy_release_app() {",
     "clear_transaction_dir() {",
+    "original_pair_valid() {",
+    "ensure_canonical_original() {",
+    "cleanup_known_legacy_backups() {",
+    'LEGACY_PREVIOUS_APP="${LEGACY_CAMPER_DIR}/app.previous"',
+    'LEGACY_APPS_BEFORE="${LEGACY_CAMPER_DIR}/apps.json.before"',
+    'LEGACY_CONFIG="${LEGACY_CAMPER_DIR}/config.json"',
+    'LEGACY_STATUSBAR_ROOT="${LEGACY_STATUSBAR_DIR}/Root.qml.before"',
     'clear_known_app_dir "$LEGACY_APP_BACKUP"',
-    'rm -f "$LEGACY_APPS_BACKUP" "$LEGACY_ROOT_BACKUP" "$LEGACY_STATUS_BACKUP"',
     'write_install_log "failed" "$rollback_reason"',
     'write_install_log "success" "none"',
     'output "ERROR ${INSTALL_STEP}: ${rollback_reason}" 1',
@@ -55,8 +61,14 @@ for token in required:
     if token not in installer:
         raise AssertionError(f"Bounded/atomic installer token missing: {token}")
 
-if installer.index('clear_known_app_dir "$LEGACY_APP_BACKUP"') < installer.index("original_backup_invalid"):
+if installer.rindex('ensure_canonical_original || rollback_installation "$ORIGINAL_ERROR"') > installer.rindex(
+    'cleanup_known_legacy_backups || rollback_installation "$CLEANUP_ERROR"'
+):
     raise AssertionError("Legacy backups are cleaned before the original Ford pair is validated")
+if "rvc-on-demand" in installer:
+    raise AssertionError("Installer cleanup must never reference the foreign rvc-on-demand directory")
+if "LEGACY_CONFIG" in function_text("cleanup_known_legacy_backups"):
+    raise AssertionError("Legacy cleanup may not unlink the persistent Camper config")
 
 log_block = function_text("write_install_log")
 if ' > "$INSTALL_LOG"' not in log_block or '>> "$INSTALL_LOG"' in log_block:
@@ -68,32 +80,171 @@ shell = shutil.which("sh")
 if shell:
     helpers = "\n\n".join(
         function_text(name)
-        for name in ("clear_known_app_dir", "copy_release_app", "clear_transaction_dir")
+        for name in (
+            "clear_known_app_dir",
+            "copy_release_app",
+            "clear_transaction_dir",
+            "clear_original_stage",
+            "files_equal",
+            "original_pair_valid",
+            "stage_original_pair",
+            "ensure_canonical_original",
+            "clear_legacy_statusbar_dir",
+            "cleanup_known_legacy_backups",
+        )
     )
 
     with tempfile.TemporaryDirectory(prefix="camper-sync-bounded-") as temporary:
         base = Path(temporary)
 
-        # A complete legacy app backup and the bad 3.12 transaction/app shape
-        # must both clear in fixed time using only the positive file list.
-        legacy = base / "app.transaction"
-        shutil.copytree(APP_SOURCE, legacy)
-        transaction = base / "transaction"
+        # Exact layout from the real File Viewer photos.
+        mods = base / "fmods/mods"
+        camper = mods / "camper"
+        complete = mods / "camper-complete"
+        statusbar = mods / "camper-statusbar"
+        rvc = mods / "rvc-on-demand"
+        transaction = complete / "transaction"
+        original = complete / "original"
+        original_stage = complete / "original.new"
+        ford = base / "ford"
+        for directory in (camper, complete, statusbar, rvc, ford):
+            directory.mkdir(parents=True, exist_ok=True)
+
+        shutil.copytree(APP_SOURCE, camper / "app.previous")
+        shutil.copytree(APP_SOURCE, complete / "app.transaction")
         shutil.copytree(APP_SOURCE, transaction / "app")
-        for name in ("apps.json", "Root.qml", "StatusBarDriverTemperature.qml"):
-            (transaction / name).write_text(name, encoding="ascii")
-        cleanup_script = "\n".join(
+        (camper / "apps.json.before").write_text("old-apps", encoding="ascii")
+        (camper / "config.json").write_text('{"keep":true}', encoding="ascii")
+        (complete / "Root.qml.transaction").write_text("FORD ROOT ORIGINAL", encoding="ascii")
+        (complete / "StatusBarDriverTemperature.qml.transaction").write_text("FORD STATUS ORIGINAL", encoding="ascii")
+        (complete / "apps.json.transaction").write_text("old-apps-2", encoding="ascii")
+        (complete / "install-last.log").write_text("old-log", encoding="ascii")
+        (transaction / "apps.json").write_text("attempt-apps", encoding="ascii")
+        (transaction / "Root.qml").write_text("camperControlLoader", encoding="ascii")
+        (transaction / "StatusBarDriverTemperature.qml").write_text("CamperState.camperOpen", encoding="ascii")
+        (statusbar / "Root.qml.before").write_text("STATUSBAR ROOT ORIGINAL", encoding="ascii")
+        (statusbar / "StatusBarDriverTemperature.qml.before").write_text("STATUSBAR STATUS ORIGINAL", encoding="ascii")
+        (statusbar / "restore-statusbar-root.sh").write_text("#!/bin/sh\n", encoding="ascii")
+        (rvc / "camera_icon_position").write_text("123", encoding="ascii")
+        (ford / "Root.qml").write_text("camperControlLoader", encoding="ascii")
+        (ford / "StatusBarDriverTemperature.qml").write_text("CamperState.camperOpen", encoding="ascii")
+
+        photo_assignments = {
+            "BACKUP_DIR": complete,
+            "TRANSACTION_DIR": transaction,
+            "ORIGINAL_DIR": original,
+            "ORIGINAL_STAGE": original_stage,
+            "LEGACY_APP_BACKUP": complete / "app.transaction",
+            "LEGACY_APPS_BACKUP": complete / "apps.json.transaction",
+            "LEGACY_ROOT_BACKUP": complete / "Root.qml.transaction",
+            "LEGACY_STATUS_BACKUP": complete / "StatusBarDriverTemperature.qml.transaction",
+            "LEGACY_CAMPER_DIR": camper,
+            "LEGACY_PREVIOUS_APP": camper / "app.previous",
+            "LEGACY_APPS_BEFORE": camper / "apps.json.before",
+            "LEGACY_CONFIG": camper / "config.json",
+            "LEGACY_STATUSBAR_DIR": statusbar,
+            "LEGACY_STATUSBAR_ROOT": statusbar / "Root.qml.before",
+            "LEGACY_STATUSBAR_STATUS": statusbar / "StatusBarDriverTemperature.qml.before",
+            "LEGACY_STATUSBAR_RESTORE": statusbar / "restore-statusbar-root.sh",
+            "ROOT_TARGET": ford / "Root.qml",
+            "STATUS_TARGET": ford / "StatusBarDriverTemperature.qml",
+        }
+        photo_script = ["set -eu", helpers]
+        photo_script.extend(f"{name}={shlex.quote(str(path))}" for name, path in photo_assignments.items())
+        photo_script.extend(
             (
-                "set -u",
-                helpers,
-                f"TRANSACTION_DIR={shlex.quote(str(transaction))}",
-                f"clear_known_app_dir {shlex.quote(str(legacy))}",
-                "clear_transaction_dir",
+                "ROOT_MODE=installed",
+                "ORIGINAL_SOURCE=unset",
+                "ORIGINAL_ERROR=original_backup_missing",
+                "CLEANUP_ERROR=legacy_cleanup_failed",
+                "ensure_canonical_original",
+                "cleanup_known_legacy_backups",
+                '[ "$ORIGINAL_SOURCE" = camper_complete_transaction ]',
             )
         )
-        subprocess.run([shell, "-c", cleanup_script], check=True, timeout=2)
-        if legacy.exists() or transaction.exists():
-            raise AssertionError("Known legacy/transaction payload was not fully removed")
+        subprocess.run([shell, "-c", "\n".join(photo_script)], check=True, timeout=3)
+
+        if (original / "Root.qml").read_text(encoding="ascii") != "FORD ROOT ORIGINAL":
+            raise AssertionError("Canonical Root.qml was not migrated from the validated complete pair")
+        if (original / "StatusBarDriverTemperature.qml").read_text(encoding="ascii") != "FORD STATUS ORIGINAL":
+            raise AssertionError("Canonical statusbar file was not migrated with its matching Root.qml")
+        if (camper / "config.json").read_text(encoding="ascii") != '{"keep":true}':
+            raise AssertionError("Photo-fixture cleanup modified the persistent Camper config")
+        if (rvc / "camera_icon_position").read_text(encoding="ascii") != "123":
+            raise AssertionError("Photo-fixture cleanup touched rvc-on-demand")
+        if any(path.exists() for path in (
+            camper / "app.previous",
+            camper / "apps.json.before",
+            complete / "app.transaction",
+            transaction,
+            complete / "Root.qml.transaction",
+            complete / "StatusBarDriverTemperature.qml.transaction",
+            complete / "apps.json.transaction",
+            statusbar,
+        )):
+            raise AssertionError("Known photo-fixture legacy backups were not removed")
+        canonical_ford_files = sorted(
+            path.relative_to(mods).as_posix()
+            for path in mods.rglob("*")
+            if path.is_file() and path.name in {"Root.qml", "StatusBarDriverTemperature.qml", "Root.qml.before", "StatusBarDriverTemperature.qml.before", "Root.qml.transaction", "StatusBarDriverTemperature.qml.transaction"}
+        )
+        if canonical_ford_files != [
+            "camper-complete/original/Root.qml",
+            "camper-complete/original/StatusBarDriverTemperature.qml",
+        ]:
+            raise AssertionError(f"Expected exactly one canonical Ford pair, got {canonical_ford_files}")
+
+        # If camper-complete has no usable pair, the known camper-statusbar
+        # .before pair is the bounded fallback and is copied as one pair.
+        fallback = base / "statusbar-fallback"
+        fallback_original = fallback / "complete/original"
+        fallback_stage = fallback / "complete/original.new"
+        fallback_statusbar = fallback / "camper-statusbar"
+        fallback_original.parent.mkdir(parents=True)
+        fallback_statusbar.mkdir(parents=True)
+        (fallback_statusbar / "Root.qml.before").write_text("FALLBACK ROOT", encoding="ascii")
+        (fallback_statusbar / "StatusBarDriverTemperature.qml.before").write_text("FALLBACK STATUS", encoding="ascii")
+        fallback_assignments = {
+            "ORIGINAL_DIR": fallback_original,
+            "ORIGINAL_STAGE": fallback_stage,
+            "LEGACY_ROOT_BACKUP": fallback / "missing-root",
+            "LEGACY_STATUS_BACKUP": fallback / "missing-status",
+            "LEGACY_STATUSBAR_ROOT": fallback_statusbar / "Root.qml.before",
+            "LEGACY_STATUSBAR_STATUS": fallback_statusbar / "StatusBarDriverTemperature.qml.before",
+            "TRANSACTION_DIR": fallback / "missing-transaction",
+            "ROOT_TARGET": ford / "Root.qml",
+            "STATUS_TARGET": ford / "StatusBarDriverTemperature.qml",
+        }
+        fallback_script = ["set -eu", helpers]
+        fallback_script.extend(f"{name}={shlex.quote(str(path))}" for name, path in fallback_assignments.items())
+        fallback_script.extend(
+            (
+                "ROOT_MODE=installed",
+                "ORIGINAL_SOURCE=unset",
+                "ORIGINAL_ERROR=original_backup_missing",
+                "ensure_canonical_original",
+                '[ "$ORIGINAL_SOURCE" = camper_statusbar_before ]',
+            )
+        )
+        subprocess.run([shell, "-c", "\n".join(fallback_script)], check=True, timeout=2)
+        if (fallback_original / "Root.qml").read_text(encoding="ascii") != "FALLBACK ROOT":
+            raise AssertionError("Statusbar .before fallback was not migrated")
+
+        # A present but empty/corrupt file is not a validated Ford restore pair.
+        empty_original = base / "empty-original"
+        empty_original.mkdir()
+        (empty_original / "Root.qml").write_bytes(b"")
+        (empty_original / "StatusBarDriverTemperature.qml").write_text("FORD STATUS", encoding="ascii")
+        empty_script = "\n".join(
+            (
+                "set -eu",
+                function_text("original_pair_valid"),
+                "if original_pair_valid "
+                f"{shlex.quote(str(empty_original / 'Root.qml'))} "
+                f"{shlex.quote(str(empty_original / 'StatusBarDriverTemperature.qml'))}; then exit 91; fi",
+            )
+        )
+        subprocess.run([shell, "-c", empty_script], check=True, timeout=2)
 
         # Unexpected nested content must fail fast and remain untouched; it may
         # never trigger recursive traversal or delete an unknown Ford file.

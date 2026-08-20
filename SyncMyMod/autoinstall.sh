@@ -45,6 +45,14 @@ LEGACY_APPS_BACKUP="${BACKUP_DIR}/apps.json.transaction"
 LEGACY_ROOT_BACKUP="${BACKUP_DIR}/Root.qml.transaction"
 LEGACY_STATUS_BACKUP="${BACKUP_DIR}/StatusBarDriverTemperature.qml.transaction"
 INSTALL_LOG="${BACKUP_DIR}/install-last.log"
+LEGACY_CAMPER_DIR="/fs/rwdata/fmods/mods/camper"
+LEGACY_PREVIOUS_APP="${LEGACY_CAMPER_DIR}/app.previous"
+LEGACY_APPS_BEFORE="${LEGACY_CAMPER_DIR}/apps.json.before"
+LEGACY_CONFIG="${LEGACY_CAMPER_DIR}/config.json"
+LEGACY_STATUSBAR_DIR="/fs/rwdata/fmods/mods/camper-statusbar"
+LEGACY_STATUSBAR_ROOT="${LEGACY_STATUSBAR_DIR}/Root.qml.before"
+LEGACY_STATUSBAR_STATUS="${LEGACY_STATUSBAR_DIR}/StatusBarDriverTemperature.qml.before"
+LEGACY_STATUSBAR_RESTORE="${LEGACY_STATUSBAR_DIR}/restore-statusbar-root.sh"
 DISPLAY="/fs/tmpfs/status"
 POPUP="/tmp/popup.txt"
 
@@ -57,6 +65,9 @@ HAD_ROOT_MARKER=0
 TRANSACTION_READY=0
 APP_SWAP_STARTED=0
 INSTALL_STEP="preflight"
+ORIGINAL_SOURCE="unset"
+ORIGINAL_ERROR="original_backup_missing"
+CLEANUP_ERROR="legacy_cleanup_failed"
 
 output() {
     echo "${1}" > "$DISPLAY"
@@ -77,6 +88,7 @@ write_install_log() {
         echo "state=${log_state}"
         echo "step=${INSTALL_STEP}"
         echo "reason=${log_reason}"
+        echo "original_source=${ORIGINAL_SOURCE}"
         echo "storage_probe=skipped_during_install"
     } > "$INSTALL_LOG" 2>/dev/null
 }
@@ -183,6 +195,83 @@ clear_original_stage() {
     [ -d "$ORIGINAL_STAGE" ] || return 1
     rm -f "${ORIGINAL_STAGE}/Root.qml" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || return 1
     rmdir "$ORIGINAL_STAGE" 2>/dev/null
+}
+
+original_pair_valid() {
+    pair_root="$1"
+    pair_status="$2"
+    [ -f "$pair_root" ] && [ -s "$pair_root" ] || return 1
+    [ -f "$pair_status" ] && [ -s "$pair_status" ] || return 1
+    grep -q "camperControlLoader" "$pair_root" && return 1
+    grep -q "CamperState.camperOpen" "$pair_status" && return 1
+    return 0
+}
+
+stage_original_pair() {
+    pair_root="$1"
+    pair_status="$2"
+    pair_source="$3"
+    original_pair_valid "$pair_root" "$pair_status" || return 1
+    clear_original_stage || return 1
+    mkdir "$ORIGINAL_STAGE" || return 1
+    cp "$pair_root" "${ORIGINAL_STAGE}/Root.qml" || return 1
+    cp "$pair_status" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || return 1
+    original_pair_valid "${ORIGINAL_STAGE}/Root.qml" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || return 1
+    files_equal "$pair_root" "${ORIGINAL_STAGE}/Root.qml" || return 1
+    files_equal "$pair_status" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || return 1
+    mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR" || return 1
+    ORIGINAL_SOURCE="$pair_source"
+    return 0
+}
+
+# Keep one and only one canonical pre-Camper Ford pair.  Candidate sources are
+# tried without modifying them; redundant copies are removed only afterwards.
+ensure_canonical_original() {
+    ORIGINAL_ERROR="original_backup_missing"
+    if [ -e "$ORIGINAL_DIR" ]; then
+        if original_pair_valid "${ORIGINAL_DIR}/Root.qml" "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml"; then
+            ORIGINAL_SOURCE="canonical"
+            return 0
+        fi
+        ORIGINAL_ERROR="canonical_original_invalid"
+        return 1
+    fi
+
+    if [ "$ROOT_MODE" = "fresh" ]; then
+        stage_original_pair "$ROOT_TARGET" "$STATUS_TARGET" "live_fresh_ford" && return 0
+    fi
+    stage_original_pair "$LEGACY_ROOT_BACKUP" "$LEGACY_STATUS_BACKUP" "camper_complete_transaction" && return 0
+    stage_original_pair "$LEGACY_STATUSBAR_ROOT" "$LEGACY_STATUSBAR_STATUS" "camper_statusbar_before" && return 0
+    stage_original_pair "${TRANSACTION_DIR}/Root.qml" "${TRANSACTION_DIR}/StatusBarDriverTemperature.qml" "bounded_transaction" && return 0
+    return 1
+}
+
+clear_legacy_statusbar_dir() {
+    [ -e "$LEGACY_STATUSBAR_DIR" ] || return 0
+    [ -d "$LEGACY_STATUSBAR_DIR" ] || return 1
+    rm -f "$LEGACY_STATUSBAR_ROOT" "$LEGACY_STATUSBAR_STATUS" "$LEGACY_STATUSBAR_RESTORE" || return 1
+    rmdir "$LEGACY_STATUSBAR_DIR" 2>/dev/null
+}
+
+# Photo-verified legacy layout.  config.json and the independent camera mod are
+# deliberately outside every unlink path used here.
+cleanup_known_legacy_backups() {
+    CLEANUP_ERROR="camper_previous_app_unexpected_content"
+    clear_known_app_dir "$LEGACY_PREVIOUS_APP" || return 1
+    CLEANUP_ERROR="camper_complete_app_unexpected_content"
+    clear_known_app_dir "$LEGACY_APP_BACKUP" || return 1
+    CLEANUP_ERROR="transaction_unexpected_content"
+    clear_transaction_dir || return 1
+    CLEANUP_ERROR="legacy_small_backup_cleanup"
+    rm -f \
+        "$LEGACY_APPS_BEFORE" \
+        "$LEGACY_APPS_BACKUP" \
+        "$LEGACY_ROOT_BACKUP" \
+        "$LEGACY_STATUS_BACKUP" || return 1
+    CLEANUP_ERROR="camper_statusbar_unexpected_content"
+    clear_legacy_statusbar_dir || return 1
+    CLEANUP_ERROR="none"
+    return 0
 }
 
 clear_bridge_dir() {
@@ -401,38 +490,14 @@ fi
 progress 32
 output "30/2 Checking original Ford restore pair..." 1
 mark_step "original-backup"
-if [ -f "${ORIGINAL_DIR}/Root.qml" ] || [ -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then
-    if [ ! -f "${ORIGINAL_DIR}/Root.qml" ] || [ ! -f "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml" ]; then rollback_installation "original_backup_partial"; fi
-else
-    if [ -d "$ORIGINAL_DIR" ]; then rmdir "$ORIGINAL_DIR" 2>/dev/null || rollback_installation "original_dir_unexpected_content"; fi
-    clear_original_stage || rollback_installation "original_stage_unexpected_content"
-    mkdir -p "$ORIGINAL_STAGE" || rollback_installation "original_stage_create"
-    if [ "$ROOT_MODE" = "fresh" ]; then
-        cp "$ROOT_TARGET" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation "original_root_copy"
-        cp "$STATUS_TARGET" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation "original_status_copy"
-    elif [ -f "$LEGACY_ROOT_BACKUP" ] \
-         && [ -f "$LEGACY_STATUS_BACKUP" ] \
-         && ! grep -q "camperControlLoader" "$LEGACY_ROOT_BACKUP" \
-         && ! grep -q "CamperState.camperOpen" "$LEGACY_STATUS_BACKUP"; then
-        cp "$LEGACY_ROOT_BACKUP" "${ORIGINAL_STAGE}/Root.qml" || rollback_installation "legacy_root_migrate"
-        cp "$LEGACY_STATUS_BACKUP" "${ORIGINAL_STAGE}/StatusBarDriverTemperature.qml" || rollback_installation "legacy_status_migrate"
-    else
-        rollback_installation "original_backup_missing"
-    fi
-    mv "$ORIGINAL_STAGE" "$ORIGINAL_DIR" || rollback_installation "original_backup_commit"
-fi
-if grep -q "camperControlLoader" "${ORIGINAL_DIR}/Root.qml" \
-   || grep -q "CamperState.camperOpen" "${ORIGINAL_DIR}/StatusBarDriverTemperature.qml"; then
-    rollback_installation "original_backup_invalid"
-fi
+ensure_canonical_original || rollback_installation "$ORIGINAL_ERROR"
 
 # A successful original migration makes all old full-app and *.transaction
-# copies obsolete.  Removing these exact paths prevents /fs/rwdata growth.
+# copies obsolete.  Camper config and the independent camera mod remain intact.
 progress 34
 output "30/3 Cleaning known legacy backup files..." 1
 mark_step "legacy-cleanup"
-clear_known_app_dir "$LEGACY_APP_BACKUP" || rollback_installation "legacy_app_unexpected_content"
-rm -f "$LEGACY_APPS_BACKUP" "$LEGACY_ROOT_BACKUP" "$LEGACY_STATUS_BACKUP" || rollback_installation "legacy_backup_cleanup"
+cleanup_known_legacy_backups || rollback_installation "$CLEANUP_ERROR"
 
 progress 37
 output "30/4 Replacing small transaction snapshot..." 1
