@@ -79,3 +79,12 @@ Sie ist Bestandteil desselben `SyncMyMod`-Installers. Unterstützt werden die ge
 ## Entfernen
 
 Im Custom Apps Loader die Camper-Kachel lange drücken und die Löschung bestätigen. Dessen `app_delete.sh` ruft das mitgelieferte `uninstall.sh` auf und entfernt anschließend App-Eintrag und App-Ordner.
+
+## Lizenz
+
+Der originale CamperControl-Code dieses Repositories steht unter der
+[PolyForm Noncommercial License 1.0.0](LICENSE.md). Kommerzielle Nutzung ist
+nicht erlaubt. Ford-/FMods-Bestandteile, Bilder, Produktnamen und anderes
+Drittmaterial bleiben von dieser Lizenz ausgenommen; Einzelheiten stehen in
+[NOTICE.md](NOTICE.md). Die separat unter CC BY 4.0 stehenden DWD-/BSH-Daten
+sind in [DATA-LICENSES.md](DATA-LICENSES.md) dokumentiert.
