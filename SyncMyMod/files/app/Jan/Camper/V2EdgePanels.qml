@@ -94,7 +94,10 @@ Item {
 
     function validTides(data) {
         if (!data || typeof data !== "object" || data.source !== "BSH" || data.referenceLevel !== "PNP") return false
-        if (!data.attribution || !validIsoTimestamp(data.updatedUtc)
+        if (!data.attribution || data.license !== "CC BY 4.0"
+                || data.licenseUrl !== "https://creativecommons.org/licenses/by/4.0/"
+                || typeof data.changes !== "string" || !data.changes.length || data.changes.length > 256
+                || !validIsoTimestamp(data.updatedUtc)
                 || (data.stale !== true && data.stale !== false)) return false
         var station = data.station
         if (!station || typeof station !== "object" || !station.id || !station.name

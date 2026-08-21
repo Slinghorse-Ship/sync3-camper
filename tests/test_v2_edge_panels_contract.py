@@ -16,6 +16,7 @@ preview = (ROOT / "tools/preview_qml.py").read_text(encoding="utf-8")
 readme = (ROOT / "README.md").read_text(encoding="utf-8")
 app_entry = (ROOT / "SyncMyMod/files/other/app-entry.json").read_text(encoding="utf-8")
 wrapper = (QML / "Camper.qml").read_text(encoding="utf-8")
+tide_options = main[main.index("property var tideStationOptions"):main.index("property double now")]
 
 
 checks = {
@@ -27,7 +28,9 @@ checks = {
     "weather is snapshot-only and never performs HTTP": (
         "weather: shell.snapshot.weather || ({})" in shell
         and "property var weather" in panels
-        and not any(token in panels for token in ("XMLHttpRequest", "http://", "https://"))
+        and "XMLHttpRequest" not in panels
+        and "http://" not in panels
+        and panels.count('https://creativecommons.org/licenses/by/4.0/') == 1
     ),
     "weather matches the Cerbo schema-1 transport": all(
         token in panels
@@ -53,6 +56,9 @@ checks = {
             "weather.tides",
             'data.source !== "BSH"',
             'data.referenceLevel !== "PNP"',
+            'data.license !== "CC BY 4.0"',
+            'data.licenseUrl !== "https://creativecommons.org/licenses/by/4.0/"',
+            'typeof data.changes !== "string"',
             "data.updatedUtc",
             "data.stale",
             "station.distanceKm",
@@ -71,7 +77,7 @@ checks = {
         and "validTideEvent(data.nextHigh) && validTideEvent(data.nextLow)" in panels
         and "XMLHttpRequest" not in panels
         and "http://" not in panels
-        and "https://" not in panels
+        and panels.count("https://") == 1
     ),
     "optional tide curve is strictly bounded and independently scaled": all(
         token in panels
@@ -223,12 +229,59 @@ checks = {
         and "id: edgeHandle" not in panels
     ),
     "weather is read-only": "panels.activate" not in panels[panels.index("id: weatherPanel"):],
+    "SYNC exposes independent central weather and North-Sea tide settings": all(
+        token in main
+        for token in (
+            "property var weatherLocationConfig: defaultWeatherLocationConfig()",
+            'weather: { mode: "gps", stationId: "" }',
+            'tide: { mode: "gps", stationId: "" }',
+            "function normalizeWeatherLocation(value)",
+            "function changeWeatherLocation(sectionName, direction)",
+            "weatherLocationConfig = normalizeWeatherLocation(remoteConfig.weatherLocation)",
+            "if (weatherLocationDirty)",
+            "patch.weatherLocation = location",
+        )
+    ) and all(
+        token in settings
+        for token in (
+            'text: "WETTER & TIDE · ZENTRAL AUF DEM CERBO"',
+            'objectName: "v2WeatherLocationName"',
+            'objectName: "v2TideLocationName"',
+            'host.changeWeatherLocation("weather", -1)',
+            'host.changeWeatherLocation("weather", 1)',
+            'host.changeWeatherLocation("tide", -1)',
+            'host.changeWeatherLocation("tide", 1)',
+            "Ohne nahe Nordseestation bleibt Tide mit Wilhelmshaven sichtbar",
+        )
+    ),
+    "SYNC uses the same curated IDs and no inland tide selector": all(
+        token in main
+        for token in (
+            '{ name: "GPS / automatisch", id: "" }',
+            '{ name: "Berlin · Tempelhof", id: "10384" }',
+            '{ name: "Jade · Wilhelmshaven, Alter Vorhafen", id: "wilhelmshaven_alter_vorhafen" }',
+            '{ name: "Elbmündung · Cuxhaven, Steubenhöft", id: "cuxhaven_steubenhoeft" }',
+            "weatherSection ? /^[A-Za-z0-9]{5}$/ : /^[a-z0-9][a-z0-9_-]{0,127}$/",
+        )
+    ) and not any(token in tide_options.lower() for token in ("binnenpegel", "binnenschifffahrt", "drielake", 'id: "748p"')),
+    "data and software licenses stay unobtrusively in settings": all(
+        token in settings
+        for token in (
+            'text: "DATENQUELLEN & LIZENZEN"',
+            "Quelle: Deutscher Wetterdienst · CC BY 4.0",
+            "© Bundesamt für Seeschifffahrt und Hydrographie (BSH) · CC BY 4.0",
+            "CamperControl-Software · PolyForm Noncommercial 1.0.0",
+        )
+    ),
     "preview fixture uses the exact backend schema": all(
         token in preview
         for token in (
             'schema: 1',
             'source: "DWD MOSMIX_L"',
-            'attribution: "Deutscher Wetterdienst"',
+            'attribution: "Quelle: Deutscher Wetterdienst"',
+            'license: "CC BY 4.0"',
+            'licenseUrl: "https://creativecommons.org/licenses/by/4.0/"',
+            "Stationsauswahl, Normalisierung und Tagesaggregation durch CamperControl",
             "station:",
             "modelRunUtc:",
             "fetchedAtUtc:",
@@ -245,13 +298,17 @@ checks = {
         for token in (
             "tides: {",
             'source: "BSH"',
+            'attribution: "© Bundesamt für Seeschifffahrt und Hydrographie (BSH)"',
+            'id: "wilhelmshaven_alter_vorhafen"',
+            'name: "Wilhelmshaven Alter Vorhafen"',
+            "Nordseestationsauswahl, UTC-Normalisierung, cm→m und Kurvenreduktion durch CamperControl",
             'referenceLevel: "PNP"',
             "nextHigh:",
             "nextLow:",
             "heightM:",
             "curve: [",
         )
-    ),
+    ) and not any(token in preview for token in ("Pegel am See", "PREVIEW-TIDE", "Drielake", 'id: "748P"')),
     "preview keeps favorites and Home fixtures distinct": (
         'favoriteIds: ["light:inside_main", "switch:dc_outlets_left", "switch:maxxfan", "device:orion"]' in preview
         and "favorites: [" in preview

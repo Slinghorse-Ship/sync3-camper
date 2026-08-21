@@ -28,6 +28,56 @@ Item {
     property var lightMapping: []
     property var quickAccessIds: ["switch:water_pump", "switch:starlink", "switch:dc_outlets_left", "light:inside_main"]
     property var favoriteIds: []
+    property var weatherLocationConfig: defaultWeatherLocationConfig()
+    property bool weatherLocationDirty: false
+    property var weatherStationOptions: [
+        { name: "GPS / automatisch", id: "" },
+        { name: "Nordsee · Norderney", id: "10113" },
+        { name: "Schleswig-Holstein · Flensburg", id: "10033" },
+        { name: "Schleswig-Holstein · Kiel-Holtenau", id: "10044" },
+        { name: "Hamburg · Fuhlsbüttel", id: "10147" },
+        { name: "Bremen · Flughafen", id: "10224" },
+        { name: "Niedersachsen · Hannover", id: "10338" },
+        { name: "Brandenburg · Potsdam", id: "10379" },
+        { name: "Berlin · Tempelhof", id: "10384" },
+        { name: "Nordrhein-Westfalen · Düsseldorf", id: "10400" },
+        { name: "Nordrhein-Westfalen · Köln/Bonn", id: "10513" },
+        { name: "Hessen · Kassel", id: "10438" },
+        { name: "Hessen · Offenbach-Wetterpark", id: "10641" },
+        { name: "Sachsen · Leipzig/Schkeuditz", id: "10469" },
+        { name: "Sachsen · Dresden-Stadt", id: "10487" },
+        { name: "Thüringen · Erfurt", id: "10554" },
+        { name: "Saarland · Saarbrücken", id: "10708" },
+        { name: "Baden-Württemberg · Stuttgart-Echterdingen", id: "10738" },
+        { name: "Baden-Württemberg · Freiburg", id: "10803" },
+        { name: "Baden-Württemberg · Konstanz", id: "10929" },
+        { name: "Bayern · Nürnberg", id: "10763" },
+        { name: "Bayern · München Stadt", id: "10865" },
+        { name: "Bayern · München Flughafen", id: "10870" }
+    ]
+    // Ausschließlich kuratierte BSH-Nordseestationen. Binnenpegel und
+    // Nicht-Nordsee-Features dürfen nie in diese Auswahlliste gelangen.
+    property var tideStationOptions: [
+        { name: "GPS / automatisch", id: "" },
+        { name: "Jade · Wilhelmshaven, Alter Vorhafen", id: "wilhelmshaven_alter_vorhafen" },
+        { name: "Jade · Jade-Weser-Port", id: "jade-weser-port" },
+        { name: "Jade · Hooksielplate", id: "hooksielplate" },
+        { name: "Ostfriesland · Borkum, Fischerbalje", id: "borkum_fischerbalje" },
+        { name: "Ostfriesland · Emden, Große Seeschleuse", id: "emden_grosse_seeschleuse" },
+        { name: "Ostfriesland · Norderney, Riffgat", id: "norderney_riffgat" },
+        { name: "Ostfriesland · Wangerooge Hafen", id: "wangerooge_hafen" },
+        { name: "Ostfriesland · Spiekeroog", id: "spiekeroog" },
+        { name: "Ostfriesland · Langeoog Hafeneinfahrt", id: "langeoog_hafeneinfahrt" },
+        { name: "Elbmündung · Cuxhaven, Steubenhöft", id: "cuxhaven_steubenhoeft" },
+        { name: "Dithmarschen · Büsum, Schleuse", id: "buesum_schleuse" },
+        { name: "Nordfriesland · Husum, Schleuse", id: "husum_schleuse" },
+        { name: "Nordfriesland · Dagebüll", id: "dagebuell" },
+        { name: "Sylt · List Hafen", id: "list_hafen" },
+        { name: "Sylt · Hörnum Hafen", id: "hoernum_hafen" },
+        { name: "Sylt · Westerland", id: "westerland" },
+        { name: "Föhr · Wyk", id: "wyk" },
+        { name: "Amrum · Wittdün Hafen", id: "wittduen_hafen" }
+    ]
     property double now: new Date().getTime()
     property alias page: modernShell.currentPage
 
@@ -47,6 +97,77 @@ Item {
     function timeText(timestamp) {
         if (!timestamp) return "–"
         return new Date(Number(timestamp)).toLocaleString(Qt.locale("de_DE"), "dd.MM. hh:mm")
+    }
+
+    function defaultWeatherLocationConfig() {
+        return {
+            schema: 1,
+            weather: { mode: "gps", stationId: "" },
+            tide: { mode: "gps", stationId: "" }
+        }
+    }
+
+    function normalizeLocationSection(section, weatherSection) {
+        if (!section || typeof section !== "object" || section.length !== undefined) return null
+        var mode = section.mode
+        if ((mode !== "gps" && mode !== "station") || typeof section.stationId !== "string") return null
+        var stationId = section.stationId.replace(/^\s+|\s+$/g, "")
+        var pattern = weatherSection ? /^[A-Za-z0-9]{5}$/ : /^[a-z0-9][a-z0-9_-]{0,127}$/
+        if ((mode === "gps" && stationId !== "") || (mode === "station" && !pattern.test(stationId))) return null
+        return { mode: mode, stationId: weatherSection ? stationId.toUpperCase() : stationId }
+    }
+
+    function normalizeWeatherLocation(value) {
+        if (!value || typeof value !== "object" || value.length !== undefined || Number(value.schema) !== 1) return null
+        var weather = normalizeLocationSection(value.weather, true)
+        var tide = normalizeLocationSection(value.tide, false)
+        if (!weather || !tide) return null
+        var normalized = { schema: 1, weather: weather, tide: tide }
+        return JSON.stringify(normalized).length <= 1024 ? normalized : null
+    }
+
+    function locationOptions(sectionName) {
+        return sectionName === "weather" ? weatherStationOptions : tideStationOptions
+    }
+
+    function locationOptionIndex(sectionName) {
+        var section = weatherLocationConfig && weatherLocationConfig[sectionName]
+        var stationId = section && section.mode === "station" ? String(section.stationId || "") : ""
+        var options = locationOptions(sectionName)
+        for (var index = 0; index < options.length; ++index)
+            if (options[index].id === stationId) return index
+        return -1
+    }
+
+    function locationName(sectionName) {
+        var index = locationOptionIndex(sectionName)
+        if (index >= 0) return locationOptions(sectionName)[index].name
+        var section = weatherLocationConfig && weatherLocationConfig[sectionName]
+        return (sectionName === "weather" ? "DWD · " : "BSH · ") + String(section && section.stationId || "unbekannt")
+    }
+
+    function changeWeatherLocation(sectionName, direction) {
+        if (sectionName !== "weather" && sectionName !== "tide") return
+        var options = locationOptions(sectionName)
+        if (!options.length) return
+        var currentIndex = locationOptionIndex(sectionName)
+        if (currentIndex < 0) currentIndex = 0
+        var step = direction < 0 ? -1 : 1
+        var wantedIndex = (currentIndex + step + options.length) % options.length
+        var stationId = options[wantedIndex].id
+        var selection = stationId === ""
+                ? { mode: "gps", stationId: "" }
+                : { mode: "station", stationId: stationId }
+        var current = normalizeWeatherLocation(weatherLocationConfig) || defaultWeatherLocationConfig()
+        var next = {
+            schema: 1,
+            weather: sectionName === "weather" ? selection : current.weather,
+            tide: sectionName === "tide" ? selection : current.tide
+        }
+        var normalized = normalizeWeatherLocation(next)
+        if (!normalized) return
+        weatherLocationConfig = normalized
+        weatherLocationDirty = true
     }
 
     function readLocalSettings() {
@@ -112,6 +233,9 @@ Item {
         var remoteFavorites = remoteConfig.ui && remoteConfig.ui.favoriteIds
         favoriteIds = remoteFavorites && remoteFavorites.length !== undefined
                 ? remoteFavorites.slice(0, 4) : []
+        weatherLocationConfig = normalizeWeatherLocation(remoteConfig.weatherLocation)
+                || defaultWeatherLocationConfig()
+        weatherLocationDirty = false
     }
 
     function quickAccessOptions() {
@@ -190,6 +314,10 @@ Item {
 
     function saveRemoteConfiguration() {
         var patch = { ui: { quickAccessIds: quickAccessIds } }
+        if (weatherLocationDirty) {
+            var location = normalizeWeatherLocation(weatherLocationConfig)
+            if (location) patch.weatherLocation = location
+        }
         if (lightMapping.length) {
             var updated = []
             for (var i = 0; i < lightMapping.length; ++i) {
@@ -199,6 +327,7 @@ Item {
             patch.lights = updated
         }
         api.command("settings", "patch", null, { patch: patch })
+        weatherLocationDirty = false
     }
 
     function requestClose() {
