@@ -94,7 +94,12 @@ checks = {
             "var chartEnd = chartStart + 24 * 60 * 60 * 1000",
             "var firstTideTime = panels.tideCurveAvailable ? new Date(tideData[0].t).getTime() : NaN",
             "var visibleTides = []",
-            'context.strokeStyle = panels.dayMode ? "#008da3" : "#63e6f2"',
+            'readonly property color tideColor: dayMode ? "#008da3" : "#63e6f2"',
+            "property color tideColor: panels.tideColor",
+            "onTideColorChanged: requestPaint()",
+            "context.strokeStyle = tideColor",
+            "context.fillStyle = tideColor",
+            "color: panels.tideColor",
             'text: "Tide"',
         )
     ),

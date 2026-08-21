@@ -57,6 +57,14 @@ Item {
         if (valid(energy.totalSolarPower)) return Number(energy.totalSolarPower)
         return null
     }
+    function homePowerText() {
+        if (valid(energy.dcSystemPower)) return fmt(energy.dcSystemPower, 0, " W")
+        return signed(battery.power, 0, " W")
+    }
+    function homePowerLabel() {
+        if (valid(energy.dcSystemPower)) return "DC-Verbrauch"
+        return valid(battery.power) ? "Batterie netto" : "DC-Verbrauch"
+    }
     function comfortHumidity() {
         var comfort = temperatureSensors.comfort || ({}), ceiling = temperatureSensors.ceiling || ({}), floor = temperatureSensors.floor || ({})
         if (valid(comfort.humidity)) return Number(comfort.humidity)
@@ -157,8 +165,8 @@ Item {
             }
             Rectangle { x: 284; y: 49; width: 141; height: 119; radius: 12; color: visual.inner
                 V2Icon { x: 11; y: 11; width: 21; height: 21; kind: "battery"; lineColor: visual.blue; strokeWidth: 1.7 }
-                Text { x: 10; y: 48; text: shell.fmt(shell.energy.dcSystemPower, 0, " W"); color: visual.text; font.pixelSize: 20; font.bold: true }
-                Text { x: 10; y: 79; text: "DC-Verbrauch"; color: visual.muted; font.pixelSize: 9 }
+                Text { x: 10; y: 48; text: shell.homePowerText(); color: visual.text; font.pixelSize: 20; font.bold: true }
+                Text { x: 10; y: 79; text: shell.homePowerLabel(); color: visual.muted; font.pixelSize: 9 }
             }
         }
 

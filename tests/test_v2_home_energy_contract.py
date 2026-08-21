@@ -13,10 +13,14 @@ runtime = (ROOT / "tools/check_v2_runtime.py").read_text(encoding="utf-8")
 home = shell[shell.index('visible: shell.currentPage === 0'):shell.index('visible: shell.currentPage === 1')]
 
 checks = {
-    "Home DC total uses only the Cerbo system field": (
-        "shell.energy.dcSystemPower" in home
-        and 'text: "DC-Verbrauch"' in home
-        and "shell.battery.power" not in home[home.index('text: "DC-Verbrauch"') - 180:home.index('text: "DC-Verbrauch"') + 80]
+    "Home uses the Cerbo DC total with an honest battery-net fallback": (
+        "function homePowerText()" in shell
+        and "if (valid(energy.dcSystemPower)) return fmt(energy.dcSystemPower, 0, \" W\")" in shell
+        and "return signed(battery.power, 0, \" W\")" in shell
+        and "function homePowerLabel()" in shell
+        and 'return valid(battery.power) ? "Batterie netto" : "DC-Verbrauch"' in shell
+        and "shell.homePowerText()" in home
+        and "shell.homePowerLabel()" in home
     ),
     "solar total excludes the separate INDEVOLT source": (
         "function totalSolarPower()" in shell

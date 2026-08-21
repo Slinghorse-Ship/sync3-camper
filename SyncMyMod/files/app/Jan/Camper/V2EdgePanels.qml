@@ -12,6 +12,7 @@ Item {
     property var weather: ({})
     property bool dayMode: false
     property int activePanel: 0 // -1 = Favoriten, 0 = geschlossen, 1 = Wetter
+    readonly property color tideColor: dayMode ? "#008da3" : "#63e6f2"
 
     readonly property var hourlyForecast: weather && weather.hourly && weather.hourly.length
         ? weather.hourly : (weather && weather.forecast && weather.forecast.length ? weather.forecast : [])
@@ -528,7 +529,7 @@ Item {
                 Text { text: "Temperatur"; color: visual.muted; font.pixelSize: 8 }
                 Rectangle { width: 13; height: 8; radius: 2; color: visual.blue; opacity: .55; anchors.verticalCenter: parent.verticalCenter }
                 Text { text: "Regen"; color: visual.muted; font.pixelSize: 8 }
-                Rectangle { visible: panels.tideCurveAvailable; width: visible ? 19 : 0; height: 2; radius: 1; color: panels.dayMode ? "#008da3" : "#63e6f2"; anchors.verticalCenter: parent.verticalCenter }
+                Rectangle { visible: panels.tideCurveAvailable; width: visible ? 19 : 0; height: 2; radius: 1; color: panels.tideColor; anchors.verticalCenter: parent.verticalCenter }
                 Text { visible: panels.tideCurveAvailable; text: "Tide"; color: visual.muted; font.pixelSize: 8 }
             }
             Canvas {
@@ -538,9 +539,11 @@ Item {
                 property var hourlyData: panels.hourlyForecast
                 property var tideData: panels.tideCurve
                 property bool dayPalette: panels.dayMode
+                property color tideColor: panels.tideColor
                 onHourlyDataChanged: requestPaint()
                 onTideDataChanged: requestPaint()
                 onDayPaletteChanged: requestPaint()
+                onTideColorChanged: requestPaint()
                 onPaint: {
                     var context = getContext("2d")
                     context.clearRect(0, 0, width, height)
@@ -630,7 +633,9 @@ Item {
                         if (visibleTides.length >= 2) {
                             if (tideMaximum - tideMinimum < .1) { tideMaximum += .05; tideMinimum -= .05 }
                             var tideSpan = tideMaximum - tideMinimum
-                            context.strokeStyle = panels.dayMode ? "#008da3" : "#63e6f2"
+                            // SYNC 3's older Qt Canvas needs a typed QML color here.
+                            // A raw JavaScript string can leave the previous orange stroke active.
+                            context.strokeStyle = tideColor
                             context.lineWidth = 1.8
                             context.beginPath()
                             for (var visibleIndex = 0; visibleIndex < visibleTides.length; ++visibleIndex) {
@@ -640,7 +645,7 @@ Item {
                                 if (visibleIndex === 0) context.moveTo(tideX, tideY); else context.lineTo(tideX, tideY)
                             }
                             context.stroke()
-                            context.fillStyle = panels.dayMode ? "#008da3" : "#63e6f2"
+                            context.fillStyle = tideColor
                             context.font = "7px sans-serif"
                             context.textAlign = "left"
                             context.fillText(tideMaximum.toFixed(1).replace(".", ",") + " m", right + 3, top + 7)
