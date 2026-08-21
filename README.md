@@ -18,6 +18,20 @@ Version 3.12.0 ist ein **V2-only-Release**. V1 ist weder auswählbar noch im USB
 
 Die Außenlichtdarstellung verwendet für beide 560×360-Fahrzeugassets dieselben normierten Koordinaten wie die GX-Oberfläche. Fahrerseite: Frontbalken `(0,3000/0,1361)–(0,5661/0,1361)`, Seitenlampen `(0,6571/0,0944)` und `(0,8107/0,0972)`, Heckleuchte `(0,7714/0,0139)`. Beifahrerseite: Frontbalken `(0,4696/0,1000)–(0,7125/0,1139)`, Seitenlampen `(0,1125/0,1139)` und `(0,2625/0,1111)`, Heckleuchte `(0,0768/0,0139)`. Seitenlampen werden als kurze horizontale Lichtkörper, die Heckleuchte quadratisch und Front-/Fernlicht direkt innerhalb der langen Roof-Bar gezeichnet; die großzügigeren unsichtbaren Touchflächen bleiben davon getrennt.
 
+## Auf dem Ford-SYNC-Display
+
+CamperControl wird über das Camper-Symbol in der serienmäßigen SYNC-Oberfläche
+geöffnet. Ford-Radio, Navigation, Telefon, Kameras und Parkpilot bleiben dabei
+erhalten; der Schließen-Knopf führt aus CamperControl zurück zur Ford-Oberfläche.
+
+![Camper-App-Symbol in der Ford-SYNC-Oberfläche](docs/camper/device/ford-sync-camper-app-entry.jpg)
+
+Die folgende Aufnahme zeigt die Lichtseite im realen Fahrzeug. Die Bedienung
+bleibt auf die 800×480-SYNC-Anzeige abgestimmt und verwendet dieselben
+Fahrzeug- und Lichtpositionen wie die GX-Referenz.
+
+![CamperControl-Lichtseite auf dem Ford-SYNC-Display](docs/camper/device/ford-sync-campercontrol-light.jpg)
+
 ## Interaktive Galerie
 
 Alle Bilder stammen aus dem lokalen 800×480-SYNC-QML-Preview. Die Bereiche
