@@ -4,10 +4,14 @@ Canvas {
     id: icon
     property string kind: "home"
     property color lineColor: "#8da0ad"
+    property color sunColor: "#f4c94c"
+    property color rainColor: "#59caff"
     property real strokeWidth: 2
 
     onKindChanged: requestPaint()
     onLineColorChanged: requestPaint()
+    onSunColorChanged: requestPaint()
+    onRainColorChanged: requestPaint()
     onWidthChanged: requestPaint()
     onHeightChanged: requestPaint()
 
@@ -33,11 +37,11 @@ Canvas {
 
     function weatherCloudShape(c, w, h) {
         c.beginPath()
-        c.moveTo(w*.20,h*.66)
-        c.bezierCurveTo(w*.08,h*.65,w*.08,h*.45,w*.24,h*.42)
-        c.bezierCurveTo(w*.29,h*.19,w*.59,h*.17,w*.69,h*.38)
-        c.bezierCurveTo(w*.90,h*.36,w*.96,h*.64,w*.78,h*.68)
-        c.lineTo(w*.20,h*.68)
+        c.moveTo(w*.19,h*.64)
+        c.bezierCurveTo(w*.08,h*.61,w*.09,h*.43,w*.24,h*.41)
+        c.bezierCurveTo(w*.28,h*.22,w*.54,h*.18,w*.64,h*.36)
+        c.bezierCurveTo(w*.84,h*.34,w*.92,h*.58,w*.78,h*.67)
+        c.lineTo(w*.22,h*.67)
         c.stroke()
     }
 
@@ -137,8 +141,12 @@ Canvas {
         } else if (kind === "water") {
             c.beginPath(); c.moveTo(x,h*.08); c.bezierCurveTo(w*.77,h*.42,w*.78,h*.68,x,h*.87); c.bezierCurveTo(w*.22,h*.68,w*.23,h*.42,x,h*.08); c.stroke()
         } else if (kind === "climate") {
-            roundedRect(c,w*.38,h*.08,w*.18,h*.58,w*.09); circle(c,w*.47,h*.72,w*.19); line(c,[[w*.47,h*.27],[w*.47,h*.68]])
-            line(c,[[w*.66,h*.24],[w*.82,h*.24]]); line(c,[[w*.66,h*.40],[w*.77,h*.40]]); line(c,[[w*.66,h*.56],[w*.82,h*.56]])
+            circle(c,w*.42,h*.71,w*.15); roundedRect(c,w*.35,h*.13,w*.14,h*.57,w*.07); line(c,[[w*.42,h*.31],[w*.42,h*.68]])
+            circle(c,w*.73,h*.30,w*.08)
+            for (var climateRay=0;climateRay<8;climateRay++) {
+                var climateAngle=climateRay*Math.PI/4
+                line(c,[[w*.73+Math.cos(climateAngle)*w*.13,h*.30+Math.sin(climateAngle)*h*.13],[w*.73+Math.cos(climateAngle)*w*.18,h*.30+Math.sin(climateAngle)*h*.18]])
+            }
         } else if (kind === "flame") {
             c.beginPath(); c.moveTo(x,h*.08); c.bezierCurveTo(w*.57,h*.30,w*.74,h*.35,w*.76,h*.58); c.bezierCurveTo(w*.79,h*.84,w*.59,h*.92,x,h*.92); c.bezierCurveTo(w*.29,h*.92,w*.17,h*.74,w*.24,h*.55); c.bezierCurveTo(w*.29,h*.41,w*.43,h*.50,w*.47,h*.34); c.bezierCurveTo(w*.49,h*.24,w*.43,h*.18,x,h*.08); c.stroke()
         } else if (kind === "weatherUnknown") {
@@ -146,40 +154,62 @@ Canvas {
             c.beginPath(); c.moveTo(w*.38,h*.40); c.quadraticCurveTo(w*.45,h*.27,w*.57,h*.34); c.quadraticCurveTo(w*.69,h*.43,w*.51,h*.58); c.lineTo(w*.51,h*.67); c.stroke()
             circle(c,w*.51,h*.78,w*.018)
         } else if (kind === "weatherClear") {
-            circle(c,x,y,w*.20)
+            c.strokeStyle = sunColor
+            circle(c,w*.50,h*.49,w*.17)
             for (var ray=0;ray<8;ray++) {
                 var angle=ray*Math.PI/4
-                line(c,[[x+Math.cos(angle)*w*.31,y+Math.sin(angle)*h*.31],[x+Math.cos(angle)*w*.43,y+Math.sin(angle)*h*.43]])
+                line(c,[[w*.50+Math.cos(angle)*w*.2465,h*.49+Math.sin(angle)*h*.2465],[w*.50+Math.cos(angle)*w*.3485,h*.49+Math.sin(angle)*h*.3485]])
             }
+        } else if (kind === "weatherPartly") {
+            c.strokeStyle = sunColor
+            circle(c,w*.68,h*.30,w*.11)
+            for (var partlyRay=0;partlyRay<8;partlyRay++) {
+                var partlyAngle=partlyRay*Math.PI/4
+                line(c,[[w*.68+Math.cos(partlyAngle)*w*.1595,h*.30+Math.sin(partlyAngle)*h*.1595],[w*.68+Math.cos(partlyAngle)*w*.2255,h*.30+Math.sin(partlyAngle)*h*.2255]])
+            }
+            c.strokeStyle = lineColor
+            weatherCloudShape(c,w,h)
         } else if (kind === "weatherCloud") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
         } else if (kind === "weatherRain") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
-            line(c,[[w*.30,h*.76],[w*.24,h*.91]]); line(c,[[w*.52,h*.76],[w*.46,h*.91]]); line(c,[[w*.74,h*.76],[w*.68,h*.91]])
+            c.strokeStyle = rainColor
+            line(c,[[w*.30,h*.75],[w*.25,h*.88]]); line(c,[[w*.50,h*.75],[w*.45,h*.88]]); line(c,[[w*.70,h*.75],[w*.65,h*.88]])
         } else if (kind === "weatherFreezingRain") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
-            line(c,[[w*.30,h*.76],[w*.24,h*.91]]); line(c,[[w*.70,h*.76],[w*.64,h*.91]])
-            line(c,[[w*.45,h*.86],[w*.59,h*.86]]); line(c,[[w*.52,h*.79],[w*.52,h*.93]])
+            c.strokeStyle = rainColor
+            line(c,[[w*.30,h*.75],[w*.25,h*.88]]); line(c,[[w*.50,h*.75],[w*.45,h*.88]]); line(c,[[w*.70,h*.75],[w*.65,h*.88]])
+            line(c,[[w*.42,h*.91],[w*.50,h*.91]]); line(c,[[w*.46,h*.87],[w*.46,h*.95]])
         } else if (kind === "weatherSleet") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
-            line(c,[[w*.28,h*.76],[w*.22,h*.91]]); line(c,[[w*.72,h*.76],[w*.66,h*.91]])
-            line(c,[[w*.45,h*.86],[w*.59,h*.86]]); line(c,[[w*.52,h*.79],[w*.52,h*.93]])
+            c.strokeStyle = rainColor
+            line(c,[[w*.32,h*.77],[w*.27,h*.88]]); line(c,[[w*.46,h*.82],[w*.54,h*.82]]); line(c,[[w*.50,h*.78],[w*.50,h*.86]]); line(c,[[w*.72,h*.77],[w*.67,h*.88]])
         } else if (kind === "weatherSnow") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
+            c.strokeStyle = rainColor
             for (var snow=0;snow<3;snow++) {
-                var sx=w*(.28+snow*.23), sy=h*.84
-                line(c,[[sx-w*.05,sy],[sx+w*.05,sy]]); line(c,[[sx,sy-h*.05],[sx,sy+h*.05]])
-                line(c,[[sx-w*.035,sy-h*.035],[sx+w*.035,sy+h*.035]]); line(c,[[sx+w*.035,sy-h*.035],[sx-w*.035,sy+h*.035]])
+                var sx=w*(.30+snow*.20), sy=h*.82
+                line(c,[[sx-w*.04,sy],[sx+w*.04,sy]]); line(c,[[sx,sy-h*.04],[sx,sy+h*.04]])
             }
         } else if (kind === "weatherStorm") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
-            line(c,[[w*.55,h*.70],[w*.40,h*.86],[w*.54,h*.86],[w*.43,h*.98],[w*.70,h*.79],[w*.56,h*.79]])
+            c.strokeStyle = sunColor
+            line(c,[[w*.52,h*.69],[w*.42,h*.84],[w*.53,h*.84],[w*.45,h*.96]])
         } else if (kind === "weatherHail") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
-            circle(c,w*.28,h*.84,w*.045); circle(c,w*.51,h*.90,w*.045); circle(c,w*.74,h*.84,w*.045)
+            c.strokeStyle = rainColor
+            circle(c,w*.30,h*.83,w*.035); circle(c,w*.50,h*.83,w*.035); circle(c,w*.70,h*.83,w*.035)
         } else if (kind === "weatherFog") {
+            c.strokeStyle = lineColor
             weatherCloudShape(c,w,h)
-            line(c,[[w*.16,h*.77],[w*.74,h*.77]]); line(c,[[w*.27,h*.88],[w*.86,h*.88]])
+            line(c,[[w*.20,h*.76],[w*.80,h*.76]]); line(c,[[w*.28,h*.88],[w*.72,h*.88]])
         } else if (kind === "settings") {
             circle(c,x,y,w*.13); line(c,[[w*.12,h*.30],[w*.62,h*.30]]); circle(c,w*.74,h*.30,w*.10); line(c,[[w*.38,h*.70],[w*.88,h*.70]]); circle(c,w*.26,h*.70,w*.10)
         } else if (kind === "sunMoon") {

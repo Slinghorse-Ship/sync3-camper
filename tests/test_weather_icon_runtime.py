@@ -35,16 +35,16 @@ with tempfile.TemporaryDirectory(prefix="camper-weather-icon-") as directory:
         raise AssertionError("V2EdgePanels was not instantiated")
 
     cases = (
-        ({"icon": "cloudy"}, "backend icon cloudy"),
-        ({"icon": "partly-cloudy"}, "backend icon partly-cloudy"),
-        ({"icon": "overcast"}, "backend icon overcast"),
-        ({"ww": 1}, "DWD ww 1"),
-        ({"ww": 2}, "DWD ww 2"),
-        ({"ww": 3}, "DWD ww 3"),
+        ({"icon": "cloudy"}, "weatherCloud", "backend icon cloudy"),
+        ({"icon": "partly-cloudy"}, "weatherPartly", "backend icon partly-cloudy"),
+        ({"icon": "overcast"}, "weatherCloud", "backend icon overcast"),
+        ({"ww": 1}, "weatherPartly", "DWD ww 1"),
+        ({"ww": 2}, "weatherPartly", "DWD ww 2"),
+        ({"ww": 3}, "weatherCloud", "DWD ww 3"),
     )
-    for weather_item, label in cases:
+    for weather_item, expected, label in cases:
         actual = edge_panels.weatherIcon(weather_item)
-        if actual != "weatherCloud":
-            raise AssertionError(f"{label} expected weatherCloud, got {actual!r}")
+        if actual != expected:
+            raise AssertionError(f"{label} expected {expected}, got {actual!r}")
 
-print("SYNC weather icons: cloudy/partly-cloudy/overcast and DWD ww 1/2/3 map to weatherCloud")
+print("SYNC weather icons: partly cloudy keeps the GX sun/cloud layer; cloudy remains cloud-only")

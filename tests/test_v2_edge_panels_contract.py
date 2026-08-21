@@ -65,9 +65,10 @@ checks = {
             "data.nextHigh",
             "data.nextLow",
             "event.heightM === null",
-            'objectName: "v2TideSummary"',
-            "visible: panels.tidesAvailable",
-            ' + " m PNP"',
+            'objectName: "v2WeatherSunTide"',
+            "function tideLabel()",
+            'return "BSH Tide "',
+            'toFixed(2).replace(".", ",") + " m"',
             '" · veraltet"',
         )
     ),
@@ -87,12 +88,13 @@ checks = {
             'typeof point.heightM !== "number"',
             "pointTime <= previousTime",
             "property var tideData: panels.tideCurve",
-            "panels.tideCurveAvailable && tideData.length >= 2",
-            "var tideMinimum = 1000, tideMaximum = -1000",
+            "if (panels.tideCurveAvailable)",
+            "var tideMinimum = 1000",
+            "var tideMaximum = -1000",
             "var chartEnd = chartStart + 24 * 60 * 60 * 1000",
-            "var tideStart = new Date(tideData[0].t).getTime()",
+            "var firstTideTime = panels.tideCurveAvailable ? new Date(tideData[0].t).getTime() : NaN",
             "var visibleTides = []",
-            'context.strokeStyle = "#21d4d8"',
+            'context.strokeStyle = panels.dayMode ? "#008da3" : "#63e6f2"',
             'text: "Tide"',
         )
     ),
@@ -100,12 +102,12 @@ checks = {
         'objectName: "v2Weather24HourChart"' in panels
         and "Math.min(24," in panels
         and "Math.min(6, panels.dailyForecast.length)" in panels
-        and 'text: "6-Tage-Vorhersage"' in panels
+        and 'text: "6-Tage-Vorschau"' in panels
     ),
     "weather chart exposes scales and maps every official MOSMIX group plus defensive hail": all(
         token in panels
         for token in (
-            'text: "Temperatur °C"',
+            'text: "Temperatur"',
             'Math.ceil(maximum) + " °C"',
             'Math.floor(minimum) + " °C"',
             'tideMaximum.toFixed(1).replace(".", ",") + " m"',
@@ -116,16 +118,17 @@ checks = {
             'value.indexOf("partly-cloudy")',
             'value.indexOf("cloud")',
             'value.indexOf("overcast")',
-            "code === 1 || code === 2 || code === 3",
+            "code === 1 || code === 2",
+            "if (code === 3) return \"weatherCloud\"",
             '81:"Regenschauer"',
             '95:"Gewitter mit Regen oder Schnee"',
             'return "weatherUnknown"',
         )
-    ) and all(kind in icons for kind in ('kind === "weatherFreezingRain"', 'kind === "weatherSleet"', 'kind === "weatherHail"', 'kind === "weatherUnknown"')),
-    "DWD attribution is permanently visible": (
-        "Deutscher Wetterdienst" in panels
-        and 'x: 14; y: 445; width: 532' in panels
-        and "visible:" not in panels[panels.index('text: "Quelle: "'):panels.index('text: "Quelle: "') + 240]
+    ) and all(kind in icons for kind in ('kind === "weatherPartly"', 'kind === "weatherFreezingRain"', 'kind === "weatherSleet"', 'kind === "weatherHail"', 'kind === "weatherUnknown"')),
+    "DWD attribution follows the GX source line": (
+        'objectName: "v2WeatherSourceLine"' in panels
+        and 'x: 18; y: 449; width: 524' in panels
+        and 'text: "Quelle: Deutscher Wetterdienst · " + panels.weatherLocation()' in panels
     ),
     "favorites are distinct from Home quick access and fail closed": (
         "snapshot.ui && snapshot.ui.favorites" in shell
@@ -203,11 +206,11 @@ checks = {
         and 'kind: "weatherCloud"' in panels[panels.index('id: weatherHeaderButton'):panels.index('id: leftEdge')]
         and "api.command" not in panels[panels.index('id: favoritesHeaderButton'):panels.index('id: leftEdge')]
     ),
-    "header buttons expose an active/open visual state above the scrim": (
+    "header buttons expose an active state only while the shared panel is closed": (
         panels[panels.index('id: favoritesHeaderButton'):panels.index('id: weatherHeaderButton')].count("visual.selectedBlue") == 1
         and panels[panels.index('id: weatherHeaderButton'):panels.index('id: leftEdge')].count("visual.selectedBlue") == 1
         and panels[panels.index('id: favoritesHeaderButton'):panels.index('id: leftEdge')].count("z: 60") == 2
-        and 'x: 372; y: 14; width: 168' in panels
+        and panels[panels.index('id: favoritesHeaderButton'):panels.index('id: leftEdge')].count("visible: panels.activePanel === 0") == 2
     ),
     "drawers have their agreed widths": (
         'id: favoritePanel' in panels
@@ -215,10 +218,50 @@ checks = {
         and panels[panels.index('id: favoritePanel'):panels.index('id: weatherPanel')].count("width: 340") == 1
         and "width: 560" in panels[panels.index('id: weatherPanel'):panels.index('id: closeButton')]
     ),
-    "drawers share one scrim and one 48-pixel close control": (
+    "drawers share one scrim and the GX 44-pixel close control": (
         panels.count("id: scrim") == 1
         and panels.count('objectName: "v2EdgePanelClose"') == 1
-        and "width: 48\n        height: 48" in panels
+        and "width: 44\n        height: 44" in panels
+        and "x: panels.activePanel === -1 ? 288 : panels.width - 52" in panels
+    ),
+    "weather geometry is the GX/WASM 560x480 reference": all(
+        token in panels
+        for token in (
+            'x: 17; y: 14; width: 27; height: 27',
+            'x: 55; y: 0; width: 438; height: 54',
+            'x: 16; y: 64; width: 170; height: 174',
+            'x: 196; y: 64; width: 348; height: 174',
+            'x: 16; y: 248; width: 528; height: 174',
+            'x: 8; y: 32; width: 332; height: 135',
+            'x: 18; y: 429; width: 524; height: 17',
+            'x: 18; y: 449; width: 524',
+        )
+    ),
+    "weather icons use the same three GX/WASM color layers": all(
+        token in icons
+        for token in (
+            'property color lineColor:',
+            'property color sunColor:',
+            'property color rainColor:',
+            'kind === "weatherPartly"',
+            'c.strokeStyle = sunColor',
+            'c.strokeStyle = rainColor',
+            'c.moveTo(w*.19,h*.64)',
+        )
+    ) and all(
+        token in panels
+        for token in (
+            'lineColor: visual.text; sunColor: visual.yellow; rainColor: visual.blue; strokeWidth: 2',
+            'lineColor: visual.text; sunColor: visual.yellow; rainColor: visual.blue; strokeWidth: 1.6',
+        )
+    ),
+    "SYNC visual tokens are copied from CamperV2Style": all(
+        token in (QML / "CamperStyle.qml").read_text(encoding="utf-8")
+        for token in (
+            '#f8fafb', '#0d1722', '#edf2f4', '#080c12', '#ffffff', '#111923',
+            '#e8eef1', '#15212b', '#10161a', '#f3f7fa', '#60717b', '#8da0ad',
+            '#d6e0e4', '#243746', '#006f9f', '#59caff', '#b76400', '#ffad45',
+        )
     ),
     "invisible edge zones exclude header and navigation": (
         'x: 0; y: 56; width: 18; height: 335' in panels

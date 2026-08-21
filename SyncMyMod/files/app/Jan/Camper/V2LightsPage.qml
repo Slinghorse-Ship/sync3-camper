@@ -172,8 +172,8 @@ Item {
             onClicked: view.toggleZone("rear")
         }
         MouseArea {
-            x: view.rightView ? parent.width*.457 : parent.width*.281; y: view.rightView ? parent.height*.039 : parent.height*.078
-            width: parent.width*(view.rightView ? .296 : .315); height: parent.height*.144
+            x: view.rightView ? parent.width*.409 : parent.width*.281; y: view.rightView ? parent.height*.006 : parent.height*.078
+            width: parent.width*(view.rightView ? .364 : .315); height: parent.height*(view.rightView ? .202 : .144)
             onClicked: view.toggleZone("highbeam")
         }
 

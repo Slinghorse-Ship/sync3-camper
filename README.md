@@ -16,7 +16,93 @@ Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. D
 
 Version 3.12.0 ist ein **V2-only-Release**. V1 ist weder auswählbar noch im USB-ZIP enthalten; ein vorhandener V1-Wert in der lokalen Alt-Konfiguration wird ignoriert. Beim Upgrade entfernt der Installer nach dem vollständigen Rollback-Backup nur die exakt bekannten, nicht mehr referenzierten V1-Dateien. Die Ford-Systemseite und der obere Schließen-Knopf bleiben erhalten.
 
-Die Außenlichtdarstellung verwendet für beide 560×360-Fahrzeugassets dieselben normierten Koordinaten wie die GX-Oberfläche. Fahrerseite: Frontbalken `(0,3000/0,1361)–(0,5661/0,1361)`, Seitenlampen `(0,6571/0,0944)` und `(0,8107/0,0972)`, Heckleuchte `(0,7714/0,0139)`. Beifahrerseite: Frontbalken `(0,4696/0,1667)–(0,7196/0,1806)`, Seitenlampen `(0,1125/0,1139)` und `(0,2625/0,1111)`, Heckleuchte `(0,0768/0,0139)`. Seitenlampen werden als kurze horizontale Lichtkörper, die Heckleuchte quadratisch und Front-/Fernlicht direkt innerhalb der langen Roof-Bar gezeichnet; die großzügigeren unsichtbaren Touchflächen bleiben davon getrennt.
+Die Außenlichtdarstellung verwendet für beide 560×360-Fahrzeugassets dieselben normierten Koordinaten wie die GX-Oberfläche. Fahrerseite: Frontbalken `(0,3000/0,1361)–(0,5661/0,1361)`, Seitenlampen `(0,6571/0,0944)` und `(0,8107/0,0972)`, Heckleuchte `(0,7714/0,0139)`. Beifahrerseite: Frontbalken `(0,4696/0,1000)–(0,7125/0,1139)`, Seitenlampen `(0,1125/0,1139)` und `(0,2625/0,1111)`, Heckleuchte `(0,0768/0,0139)`. Seitenlampen werden als kurze horizontale Lichtkörper, die Heckleuchte quadratisch und Front-/Fernlicht direkt innerhalb der langen Roof-Bar gezeichnet; die großzügigeren unsichtbaren Touchflächen bleiben davon getrennt.
+
+## Interaktive Galerie
+
+Alle Bilder stammen aus dem lokalen 800×480-SYNC-QML-Preview. Die Bereiche
+lassen sich auf GitHub einzeln auf- und zuklappen; jede Ansicht ist in Nacht-
+und Tagmodus dokumentiert.
+
+<details open>
+<summary><strong>Home</strong></summary>
+
+![SYNC Home](docs/camper/screens/v2-home-night.png)
+
+![SYNC Home im Tagmodus](docs/camper/screens/v2-home-day.png)
+
+</details>
+
+<details>
+<summary><strong>Licht – Fahrer- und Beifahrerseite</strong></summary>
+
+![SYNC Licht Fahrerseite](docs/camper/screens/v2-lights-driver-night.png)
+
+![SYNC Licht Beifahrerseite](docs/camper/screens/v2-lights-passenger-night.png)
+
+![SYNC Licht Fahrerseite im Tagmodus](docs/camper/screens/v2-lights-driver-day.png)
+
+![SYNC Licht Beifahrerseite im Tagmodus](docs/camper/screens/v2-lights-passenger-day.png)
+
+</details>
+
+<details>
+<summary><strong>Klima</strong></summary>
+
+![SYNC Klima](docs/camper/screens/v2-climate-night.png)
+
+![SYNC Klima im Tagmodus](docs/camper/screens/v2-climate-day.png)
+
+</details>
+
+<details>
+<summary><strong>Energie – Verbraucher und Quellen</strong></summary>
+
+![SYNC Energie](docs/camper/screens/v2-energy-power-night.png)
+
+![SYNC Energiequellen](docs/camper/screens/v2-energy-sources-night.png)
+
+![SYNC Energie im Tagmodus](docs/camper/screens/v2-energy-power-day.png)
+
+![SYNC Energiequellen im Tagmodus](docs/camper/screens/v2-energy-sources-day.png)
+
+</details>
+
+<details>
+<summary><strong>Wasser</strong></summary>
+
+![SYNC Wasser](docs/camper/screens/v2-water-night.png)
+
+![SYNC Wasser im Tagmodus](docs/camper/screens/v2-water-day.png)
+
+</details>
+
+<details>
+<summary><strong>System</strong></summary>
+
+![SYNC System](docs/camper/screens/v2-system-night.png)
+
+![SYNC System im Tagmodus](docs/camper/screens/v2-system-day.png)
+
+</details>
+
+<details>
+<summary><strong>Favoritenpanel</strong></summary>
+
+![SYNC Favoriten](docs/camper/screens/v2-favorites-night.png)
+
+![SYNC Favoriten im Tagmodus](docs/camper/screens/v2-favorites-day.png)
+
+</details>
+
+<details>
+<summary><strong>Wetter- und Tidepanel</strong></summary>
+
+![SYNC Wetter und Tide](docs/camper/screens/v2-weather-night.png)
+
+![SYNC Wetter und Tide im Tagmodus](docs/camper/screens/v2-weather-day.png)
+
+</details>
 
 Alle Schaltabsichten laufen seriell über den einen `ApiClient`. Die Warteschlange ist auf acht Einträge begrenzt, schnelle Dimm-/Lüfterwerte werden zusammengefasst und Poll-, Einstellungs- und Befehlsabrufe teilen eine Busy-Sperre sowie eigene Vier-Sekunden-Watchdogs. Jeder lokale Befehl trägt `origin: "sync"`; Starlink Kanal 5 bleibt lokal vollständig ein- und ausschaltbar. Der Cerbo/Node-RED bleibt alleinige Daten- und Schutzinstanz. V2 verwendet nur einen gemeinsamen 1-Hz-Zeitgeber für die Uhr.
 
@@ -54,7 +140,7 @@ Version 3.7.9 nimmt den gesamten sichtbaren Camper-Bildschirm als eigene Touchfl
 
 Version 3.7.8 entlastet die alte SYNC-Hardware durch einen ruhigen, dauerhaft laufenden Hintergrundabruf. Unmittelbar nach Schaltbefehlen werden mehrere kurze Bestätigungsabfragen ausgeführt, sodass Licht und 12-V-Ausgänge weiterhin schnell reagieren, ohne dass sich HTTP-Verbindungen und große Zustandsantworten aufstauen.
 
-Version 3.7 bildet die tatsächliche STAR-Power-Verkabelung ab. Ausgang 3 schaltet den Zusatz-Fernlichtbalken; Cerbo-Digitaleingang 4 liefert zusätzlich dessen Fahrzeug-Fernlichtzustand. Die serienmäßigen Ford-Scheinwerfer werden weder geschaltet noch beleuchtet dargestellt. Kanal 7 ist der weiße Tagfahrlicht-Streifen im Balken, Kanal 8 der orange Warnlicht-Streifen; dessen Blinkrhythmus erzeugt Node-RED ausschließlich per Ein/Aus. Die Lichtseite verwendet große Schaltflächen und direkt bedienbare Helligkeitsregler. Die Fahrerseite wird ohne Markise im Vordergrund gezeigt; auf der Beifahrerseite liegt die Markise sichtbar im Vordergrund. Autotherm und MaxxFan werden über ihre Gerätebeschriftung geöffnet. Die Temperaturseite zeigt alle verfügbaren Messwerte. Ihre unabhängige Raumklima-Automatik kann je nach Innenraumtemperatur AUTOTERM oder MaxxFan anfordern. Separat schützt die CPU-Lüftung den Cerbo anhand seiner eigenen SoC-/CPU-Temperatur und schaltet dafür Relais 1 (Abluft) und Relais 2 (Zuluft). Zusätzlich kann der gemeinsame Lüfterlauf in SYNC manuell ein- und ausgeschaltet werden. Die Solar-/INDEVOLT-Kachel öffnet alle Victron-MPPTs und INDEVOLT-Geräte. Unten stehen nur HOME, LICHT und 12/230; Meldungen und Service liegen in den Einstellungen. Befehlsdetails bleiben im Ereignis- und Diagnoseprotokoll verfügbar, ohne die Bedienung zu verdecken. Die SmartShunt-Kachel zeigt Hauptbatterie, Messung 2/Starterbatterie, Strom, Leistung, Verbrauch, Restzeit und Kapazität.
+Version 3.7 bildet die tatsächliche STAR-Power-Verkabelung ab. Ausgang 3 schaltet den Zusatz-Fernlichtbalken; Cerbo-Digitaleingang 4 liefert zusätzlich dessen Fahrzeug-Fernlichtzustand. Die serienmäßigen Ford-Scheinwerfer werden weder geschaltet noch beleuchtet dargestellt. Kanal 7 ist der weiße Tagfahrlicht-Streifen im Balken, Kanal 8 der orange Warnlicht-Streifen; dessen Blinkrhythmus erzeugt Node-RED ausschließlich per Ein/Aus. Die Lichtseite verwendet große Schaltflächen und direkt bedienbare Helligkeitsregler. Die Fahrerseite wird ohne Markise im Vordergrund gezeigt; auf der Beifahrerseite liegt die Markise sichtbar im Vordergrund. Autotherm und MaxxFan werden über ihre Gerätebeschriftung geöffnet. Die Temperaturseite zeigt alle verfügbaren Messwerte. Ihre unabhängige Raumklima-Automatik kann je nach Innenraumtemperatur AUTOTERM oder MaxxFan anfordern. Separat schützt die CPU-Lüftung den Cerbo anhand seiner eigenen SoC-/CPU-Temperatur und schaltet dafür Relais 1 (Abluft) und Relais 2 (Zuluft). Zusätzlich kann der gemeinsame Lüfterlauf in SYNC manuell ein- und ausgeschaltet werden. Die Solar-/INDEVOLT-Kachel öffnet alle Victron-MPPTs und INDEVOLT-Geräte. Unten stehen nur HOME, LICHT und 12/230; Meldungen und Service liegen in den Einstellungen. Befehlsdetails bleiben im Ereignis- und Diagnoseprotokoll verfügbar, ohne die Bedienung zu verdecken. Die Batterieleistung kommt wie in GX zentral aus `com.victronenergy.system /Dc/Battery/Power` und wird vom Cerbo als `energy.battery.power` an SYNC geliefert; dadurch ist die Anzeige nicht an eine feste SmartShunt-Instanz gebunden. Die Batteriedetails zeigen außerdem Hauptbatterie, Messung 2/Starterbatterie, Strom, Verbrauch, Restzeit und Kapazität.
 
 Unter `SETTINGS` können Innenlicht sowie die fünf Außenleuchten frei und ohne Doppelbelegung den dimmbaren STAR-Power-Kanälen 7–12 zugeordnet werden. Die Zuordnung wird dauerhaft im Cerbo gespeichert.
 
@@ -96,5 +182,6 @@ Der originale CamperControl-Code dieses Repositories steht unter der
 [PolyForm Noncommercial License 1.0.0](LICENSE.md). Kommerzielle Nutzung ist
 nicht erlaubt. Ford-/FMods-Bestandteile, Bilder, Produktnamen und anderes
 Drittmaterial bleiben von dieser Lizenz ausgenommen; Einzelheiten stehen in
-[NOTICE.md](NOTICE.md). Die separat unter CC BY 4.0 stehenden DWD-/BSH-Daten
-sind in [DATA-LICENSES.md](DATA-LICENSES.md) dokumentiert.
+[NOTICE.md](NOTICE.md). Aus Lucide abgeleitete Navigationssymbole behalten ihre
+[ISC-/MIT-Lizenz](LICENSE-LUCIDE.txt). Die separat unter CC BY 4.0 stehenden
+DWD-/BSH-Daten sind in [DATA-LICENSES.md](DATA-LICENSES.md) dokumentiert.
