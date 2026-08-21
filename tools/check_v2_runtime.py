@@ -231,6 +231,21 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     favorite_ids = [item["id"] for item in state["ui"]["favorites"]]
     if home_ids == favorite_ids:
         raise AssertionError("Favorites fell back to the Home quickAccess list")
+
+    # The Home editor shares the same selector. Cycling one slot must skip
+    # occupied IDs rather than moving the occupants to another row.
+    quick_before = list(variant(root.property("quickAccessIds")))
+    root.changeQuickAccess(0, 1)
+    quick_after = list(variant(root.property("quickAccessIds")))
+    if quick_after == quick_before:
+        raise AssertionError("Home quick-access + control did not advance to an available ID")
+    if quick_after[1:] != quick_before[1:] or len(set(quick_after)) != len(quick_after):
+        raise AssertionError("Home quick-access + control reordered another slot")
+    root.changeQuickAccess(0, -1)
+    if list(variant(root.property("quickAccessIds"))) != quick_before:
+        raise AssertionError("Home quick-access - control did not preserve stable slots")
+    checks += 1
+
     inside_before = item_with(state["lights"]["items"], "id", "inside_main")["on"]
     click(165, 112)
     if item_with(snapshot()["lights"]["items"], "id", "inside_main")["on"] is inside_before:
@@ -261,6 +276,14 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     selected_after = list(variant(root.property("favoriteIds")))
     if selected_after == selected_before or variant(api.property("lastCommandRequest")):
         raise AssertionError("Favorites editor did not remain a local-only selection change")
+    if selected_after[1:] != selected_before[1:] or len(set(selected_after)) != len(selected_after):
+        raise AssertionError("Favorites + control reordered another slot instead of skipping its occupied ID")
+    click(223, 114)
+    selected_roundtrip = list(variant(root.property("favoriteIds")))
+    if selected_roundtrip != selected_before:
+        raise AssertionError("Favorites - control did not preserve stable slots while cycling backwards")
+    click(293, 114)
+    selected_after = list(variant(root.property("favoriteIds")))
     click(242, 423)
     request = variant(api.property("lastCommandRequest"))
     if (request.get("target") != "settings" or request.get("action") != "patch"
@@ -272,6 +295,23 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
 
     if int(edge_close.property("width")) < 44 or int(edge_close.property("height")) < 44:
         raise AssertionError("Shared edge-panel close target is smaller than 44 pixels")
+
+    # The Cerbo backend emits these cloud labels and DWD ww codes. None of
+    # them may fall through to the question-mark/unknown icon on SYNC.
+    cloud_icon_cases = (
+        ({"icon": "cloudy"}, "backend icon cloudy"),
+        ({"icon": "partly-cloudy"}, "backend icon partly-cloudy"),
+        ({"icon": "overcast"}, "backend icon overcast"),
+        ({"ww": 1}, "DWD ww 1"),
+        ({"ww": 2}, "DWD ww 2"),
+        ({"ww": 3}, "DWD ww 3"),
+    )
+    for weather_item, label in cloud_icon_cases:
+        actual = edge_panels.weatherIcon(weather_item)
+        if actual != "weatherCloud":
+            raise AssertionError(f"{label} expected weatherCloud, got {actual!r}")
+    checks += 1
+
     click(302, 34)
     if edge_panels.property("activePanel") != 0:
         raise AssertionError("Shared edge-panel close control did not close favorites")

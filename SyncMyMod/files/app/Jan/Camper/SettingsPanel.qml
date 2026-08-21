@@ -137,7 +137,7 @@ Item {
                     TouchButton { x: 310; y: 7; width: 44; height: 39; label: "+"; fontSize: 17; onClicked: host.changeQuickAccess(index, 1) }
                 }
             }
-            Text { x: 16; y: 161; text: "Licht, 12 V, Wasserpumpe, Geräte und Szenen · Doppelbelegungen werden automatisch getauscht"; color: host.secondaryText; font.pixelSize: 8 }
+            Text { x: 16; y: 161; text: "Licht, 12 V, Wasserpumpe, Geräte und Szenen · Belegte Einträge werden übersprungen"; color: host.secondaryText; font.pixelSize: 8 }
         }
 
         Rectangle {

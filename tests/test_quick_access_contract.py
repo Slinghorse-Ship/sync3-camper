@@ -16,6 +16,12 @@ checks = {
     "legacy lights migrate": '"switch:high_beam_manual" : "light:" + legacyQuick[quickIndex]' in main,
     "catalog drives settings": "snapshot.ui.quickAccessOptions" in main,
     "generic ids are saved": "ui: { quickAccessIds: quickAccessIds }" in main,
+    "occupied ids are skipped without reordering another slot": (
+        "function cycleUniqueSelection(values, index, direction)" in main
+        and "if (slotIndex !== index && updated[slotIndex] === wanted)" in main
+        and "quickAccessIds = cycleUniqueSelection(quickAccessIds, index, direction)" in main
+        and "Belegte Einträge werden übersprungen" in settings
+    ),
     "snapshot drives home": "snapshot.ui && snapshot.ui.quickAccess" in shell,
     "Home never consumes favorites": (
         "function quickItems()" in shell

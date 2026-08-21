@@ -126,37 +126,43 @@ Item {
         return id || "Nicht belegt"
     }
 
-    function changeQuickAccess(index, direction) {
+    function cycleUniqueSelection(values, index, direction) {
         var options = quickAccessOptions()
-        if (!options.length || index < 0 || index >= 4) return
-        var choices = []
-        for (var optionIndex = 0; optionIndex < options.length; ++optionIndex) choices.push(options[optionIndex].id)
-        var current = choices.indexOf(quickAccessIds[index])
-        if (current < 0) current = 0
-        var wanted = choices[(current + direction + choices.length) % choices.length]
-        var occupant = quickAccessIds.indexOf(wanted)
-        var updated = quickAccessIds.slice(0)
-        while (updated.length < 4) updated.push("")
-        if (occupant >= 0 && occupant !== index) updated[occupant] = updated[index]
-        updated[index] = wanted
-        quickAccessIds = updated
-    }
-
-    function changeFavorite(index, direction) {
-        var options = quickAccessOptions()
-        if (!options.length || index < 0 || index >= 4) return
+        if (!options.length || index < 0 || index >= 4) return values
         var choices = []
         for (var optionIndex = 0; optionIndex < options.length; ++optionIndex)
             choices.push(options[optionIndex].id)
-        var updated = favoriteIds.slice(0, 4)
+        var updated = values.slice(0, 4)
         while (updated.length < 4) updated.push("")
+        var step = direction < 0 ? -1 : 1
         var current = choices.indexOf(updated[index])
-        if (current < 0) current = direction > 0 ? -1 : 0
-        var wanted = choices[(current + direction + choices.length) % choices.length]
-        var occupant = updated.indexOf(wanted)
-        if (occupant >= 0 && occupant !== index) updated[occupant] = updated[index]
-        updated[index] = wanted
-        favoriteIds = updated
+        if (current < 0) current = step > 0 ? -1 : 0
+        for (var offset = 1; offset <= choices.length; ++offset) {
+            var choiceIndex = (current + step * offset + choices.length) % choices.length
+            var wanted = choices[choiceIndex]
+            var occupied = false
+            for (var slotIndex = 0; slotIndex < updated.length; ++slotIndex) {
+                if (slotIndex !== index && updated[slotIndex] === wanted) {
+                    occupied = true
+                    break
+                }
+            }
+            if (!occupied) {
+                updated[index] = wanted
+                return updated
+            }
+        }
+        return updated
+    }
+
+    function changeQuickAccess(index, direction) {
+        if (index < 0 || index >= 4) return
+        quickAccessIds = cycleUniqueSelection(quickAccessIds, index, direction)
+    }
+
+    function changeFavorite(index, direction) {
+        if (index < 0 || index >= 4) return
+        favoriteIds = cycleUniqueSelection(favoriteIds, index, direction)
     }
 
     function saveFavorite() {

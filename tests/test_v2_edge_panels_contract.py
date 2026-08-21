@@ -107,6 +107,10 @@ checks = {
             "code === 83 || code === 84",
             "code === 56 || code === 57 || code === 66 || code === 67",
             "code === 96 || code === 99",
+            'value.indexOf("partly-cloudy")',
+            'value.indexOf("cloud")',
+            'value.indexOf("overcast")',
+            "code === 1 || code === 2 || code === 3",
             '81:"Regenschauer"',
             '95:"Gewitter mit Regen oder Schnee"',
             'return "weatherUnknown"',
@@ -134,6 +138,14 @@ checks = {
         and "function saveFavorite()" in main
         and "patch: { ui: { favoriteIds: ids } }" in main
         and "quickAccessIds" not in main[main.index("function saveFavorite()"):main.index("function changeLightChannel")]
+    ),
+    "favorite and Home selectors skip occupied IDs without moving other slots": (
+        "function cycleUniqueSelection(values, index, direction)" in main
+        and "if (slotIndex !== index && updated[slotIndex] === wanted)" in main
+        and "quickAccessIds = cycleUniqueSelection(quickAccessIds, index, direction)" in main
+        and "favoriteIds = cycleUniqueSelection(favoriteIds, index, direction)" in main
+        and "updated[occupant]" not in main[main.index("function cycleUniqueSelection"):main.index("function saveFavorite")]
+        and "Belegte Einträge werden übersprungen" in settings
     ),
     "favorites use the native V2 star icon": (
         'kind: "favorite"' in panels

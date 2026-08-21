@@ -200,7 +200,8 @@ Item {
 
     function weatherIcon(item) {
         var value = textFrom(item, "icon", "condition")
-        value = value.toLowerCase()
+        var fallback = textFrom(item, "condition", "summary")
+        value = (value + " " + fallback).toLowerCase()
         if (value.indexOf("hail") >= 0 || value.indexOf("hagel") >= 0) return "weatherHail"
         if (value.indexOf("storm") >= 0 || value.indexOf("thunder") >= 0 || value.indexOf("gewitter") >= 0) return "weatherStorm"
         if (value.indexOf("freezing") >= 0 || value.indexOf("gefrier") >= 0 || value.indexOf("ice-rain") >= 0) return "weatherFreezingRain"
@@ -209,6 +210,7 @@ Item {
         if (value.indexOf("rain") >= 0 || value.indexOf("regen") >= 0 || value.indexOf("shower") >= 0 || value.indexOf("drizzle") >= 0 || value.indexOf("sprüh") >= 0) return "weatherRain"
         if (value.indexOf("fog") >= 0 || value.indexOf("mist") >= 0 || value.indexOf("nebel") >= 0) return "weatherFog"
         if (value.indexOf("clear") >= 0 || value.indexOf("sun") >= 0 || value.indexOf("sonn") >= 0) return "weatherClear"
+        if (value.indexOf("partly-cloudy") >= 0 || value.indexOf("cloud") >= 0 || value.indexOf("overcast") >= 0 || value.indexOf("bewölk") >= 0 || value.indexOf("bedeckt") >= 0 || value.indexOf("wolk") >= 0) return "weatherCloud"
         var code = numberFrom(item, "ww", "weatherCode")
         if (code !== null) {
             code = Math.round(code)
@@ -220,6 +222,7 @@ Item {
             if (code === 51 || code === 53 || code === 55 || code === 61 || code === 63 || code === 65 || code === 80 || code === 81 || code === 82) return "weatherRain"
             if (code === 45 || code === 49) return "weatherFog"
             if (code === 0) return "weatherClear"
+            if (code === 1 || code === 2 || code === 3) return "weatherCloud"
         }
         return "weatherUnknown"
     }
