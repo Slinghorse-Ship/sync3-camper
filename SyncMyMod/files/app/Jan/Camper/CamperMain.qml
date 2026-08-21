@@ -30,6 +30,10 @@ Item {
     property var favoriteIds: []
     property var weatherLocationConfig: defaultWeatherLocationConfig()
     property bool weatherLocationDirty: false
+    property bool coldProtectionEnabled: false
+    property int coldProtectionStartTemperature: 3
+    property int coldProtectionStopTemperature: 5
+    property int coldProtectionPower: 4
     property var weatherStationOptions: [
         { name: "GPS / automatisch", id: "" },
         { name: "Nordsee · Norderney", id: "10113" },
@@ -236,6 +240,30 @@ Item {
         weatherLocationConfig = normalizeWeatherLocation(remoteConfig.weatherLocation)
                 || defaultWeatherLocationConfig()
         weatherLocationDirty = false
+        var cold = remoteConfig.coldProtection || ({})
+        coldProtectionEnabled = cold.enabled === true
+        coldProtectionStartTemperature = Math.max(0, Math.min(8, Math.round(Number(cold.startTemperature === undefined ? 3 : cold.startTemperature))))
+        coldProtectionStopTemperature = Math.max(coldProtectionStartTemperature + 1,
+                Math.min(12, Math.round(Number(cold.stopTemperature === undefined ? 5 : cold.stopTemperature))))
+        coldProtectionPower = Math.max(1, Math.min(10, Math.round(Number(cold.power === undefined ? 4 : cold.power))))
+    }
+
+    function toggleColdProtection() {
+        coldProtectionEnabled = !coldProtectionEnabled
+    }
+
+    function changeColdProtection(name, direction) {
+        var step = direction < 0 ? -1 : 1
+        if (name === "startTemperature") {
+            coldProtectionStartTemperature = Math.max(0, Math.min(8, coldProtectionStartTemperature + step))
+            if (coldProtectionStopTemperature <= coldProtectionStartTemperature)
+                coldProtectionStopTemperature = Math.min(12, coldProtectionStartTemperature + 1)
+        } else if (name === "stopTemperature") {
+            coldProtectionStopTemperature = Math.max(coldProtectionStartTemperature + 1,
+                    Math.min(12, coldProtectionStopTemperature + step))
+        } else if (name === "power") {
+            coldProtectionPower = Math.max(1, Math.min(10, coldProtectionPower + step))
+        }
     }
 
     function quickAccessOptions() {
@@ -313,7 +341,16 @@ Item {
     }
 
     function saveRemoteConfiguration() {
-        var patch = { ui: { quickAccessIds: quickAccessIds } }
+        var patch = {
+            ui: { quickAccessIds: quickAccessIds },
+            coldProtection: {
+                enabled: coldProtectionEnabled,
+                startTemperature: coldProtectionStartTemperature,
+                stopTemperature: coldProtectionStopTemperature,
+                power: coldProtectionPower,
+                sensor: "floor"
+            }
+        }
         if (weatherLocationDirty) {
             var location = normalizeWeatherLocation(weatherLocationConfig)
             if (location) patch.weatherLocation = location
@@ -399,10 +436,6 @@ Item {
     function openExternalWifiSettings() {
         openSettings()
         settingsPanel.scrollToExternalWifi()
-    }
-
-    function acknowledgeEvent(eventId) {
-        api.command("system", "acknowledge", eventId, { eventId: eventId })
     }
 
     function completeMaintenance(taskId) {

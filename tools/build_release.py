@@ -10,7 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "3.12.0"
+VERSION = "3.12.1"
 APP_ROOT = Path("SyncMyMod/files/app/Jan/Camper")
 MANIFEST_PATH = Path("SyncMyMod/files/release-manifest.cksum")
 V2_APP_PAYLOAD = (

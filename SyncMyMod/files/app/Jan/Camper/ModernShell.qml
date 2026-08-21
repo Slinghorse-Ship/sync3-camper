@@ -98,8 +98,11 @@ Item {
     }
     function patchAutomationTarget(delta) {
         var target = Math.max(10, Math.min(30, Number(automation.targetTemperature || 20) + delta))
+        var controlMode = ["off", "manual", "auto"].indexOf(String(automation.controlMode || "")) >= 0
+                ? String(automation.controlMode) : (automation.enabled === true ? "auto" : "manual")
         api.command("settings", "patch", null, { patch: { climateAutomation: {
-            enabled: automation.enabled === true,
+            enabled: controlMode === "auto",
+            controlMode: controlMode,
             mode: automation.mode || "auto",
             targetTemperature: target,
             hysteresis: Math.max(.5, Math.min(5, Number(automation.hysteresis || 1))),
@@ -283,7 +286,7 @@ Item {
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { x: 14; y: 14; text: "CamperControl"; color: visual.text; font.pixelSize: 10; font.bold: true }
-                Text { x: 14; y: 35; text: "v3.12.0"; color: visual.muted; font.pixelSize: 8 }
+                Text { x: 14; y: 35; text: "v3.12.1"; color: visual.muted; font.pixelSize: 8 }
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { anchors.centerIn: parent; text: "App schließen"; color: visual.text; font.pixelSize: 10; font.bold: true }

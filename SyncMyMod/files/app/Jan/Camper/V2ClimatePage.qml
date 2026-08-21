@@ -10,6 +10,8 @@ Item {
     property var automation: climate.automation || ({})
     property var heater: climate.heater || ({})
     property var fan: climate.fan || ({})
+    property string climateControlMode: ["off", "manual", "auto"].indexOf(String(automation.controlMode || "")) >= 0
+            ? String(automation.controlMode) : (automation.enabled === true ? "auto" : "manual")
     property bool runtimeOpen: false
     property bool fanDragging: false
     property int pendingFanSpeed: 0
@@ -18,14 +20,22 @@ Item {
 
     function valid(value) { return value !== null && value !== undefined && value !== "" && isFinite(Number(value)) }
     function fmt(value, digits, suffix) { return valid(value) ? Number(value).toFixed(digits) + (suffix || "") : "–" + (suffix || "") }
-    function patchAutomation(enabled, target) {
+    function patchAutomationTarget(target) {
         api.command("settings", "patch", null, { patch: { climateAutomation: {
-            enabled: enabled,
+            enabled: climateControlMode === "auto",
+            controlMode: climateControlMode,
             mode: automation.mode || "auto",
             targetTemperature: Math.max(10, Math.min(30, Number(target))),
             hysteresis: Math.max(.5, Math.min(5, Number(automation.hysteresis || 1))),
             fanSpeed: Math.max(10, Math.min(100, Math.round(Number(automation.fanSpeed || 50) / 10) * 10))
         } } })
+    }
+    function setControlMode(mode) {
+        if (["off", "manual", "auto"].indexOf(mode) < 0 || mode === climateControlMode) return
+        api.command("settings", "patch", null, { patch: { climateAutomation: { controlMode: mode } } })
+    }
+    function controlModeLabel() {
+        return climateControlMode === "off" ? "Aus" : (climateControlMode === "manual" ? "Manuell" : "Auto")
     }
     function heaterMode(mode) { api.command("heater", "setting", mode, { key: "mode" }) }
     function setRuntime(minutes) { api.command("heater", "setting", minutes, { key: "duration" }); runtimeOpen = false }
@@ -34,25 +44,37 @@ Item {
 
     Rectangle {
         x: 0; y: 0; width: 248; height: 326; radius: 17; color: visual.panel
-        border.width: view.automation.enabled === true ? 2 : 1
-        border.color: view.automation.enabled === true ? visual.green : visual.border
+        border.width: view.climateControlMode === "auto" ? 2 : 1
+        border.color: view.climateControlMode === "auto" ? visual.green : visual.border
         Text { x: 14; y: 14; text: "Komfort"; color: visual.text; font.pixelSize: 14; font.bold: true }
         Text { x: 14; y: 51; width: 220; horizontalAlignment: Text.AlignHCenter; text: view.fmt(view.automation.targetTemperature, 0, "°"); color: visual.text; font.pixelSize: 42; font.bold: true }
         Text { x: 14; y: 101; width: 220; horizontalAlignment: Text.AlignHCenter; text: view.fmt(view.climate.roomTemperature, 1, "° innen"); color: visual.muted; font.pixelSize: 10 }
         Rectangle { x: 14; y: 133; width: 220; height: 55; radius: 13; color: visual.inner
             Rectangle { x: 5; y: 5; width: 46; height: 45; radius: 11; color: visual.disabled
                 Text { anchors.centerIn: parent; text: "−"; color: visual.text; font.pixelSize: 21 }
-                MouseArea { anchors.fill: parent; onClicked: view.patchAutomation(view.automation.enabled === true, Number(view.automation.targetTemperature || 20) - 1) }
+                MouseArea { anchors.fill: parent; onClicked: view.patchAutomationTarget(Number(view.automation.targetTemperature || 20) - 1) }
             }
-            Text { x: 61; y: 19; width: 98; horizontalAlignment: Text.AlignHCenter; text: "Auto"; color: view.automation.enabled === true ? visual.green : visual.text; font.pixelSize: 16; font.bold: true }
+            Text { x: 61; y: 19; width: 98; horizontalAlignment: Text.AlignHCenter; text: view.controlModeLabel(); color: view.climateControlMode === "auto" ? visual.green : visual.text; font.pixelSize: 16; font.bold: true }
             Rectangle { x: 169; y: 5; width: 46; height: 45; radius: 11; color: visual.disabled
                 Text { anchors.centerIn: parent; text: "+"; color: visual.text; font.pixelSize: 21 }
-                MouseArea { anchors.fill: parent; onClicked: view.patchAutomation(view.automation.enabled === true, Number(view.automation.targetTemperature || 20) + 1) }
+                MouseArea { anchors.fill: parent; onClicked: view.patchAutomationTarget(Number(view.automation.targetTemperature || 20) + 1) }
             }
         }
-        Rectangle { x: 14; y: 208; width: 220; height: 47; radius: 13; color: view.automation.enabled === true ? visual.selectedGreen : visual.inner; border.color: view.automation.enabled === true ? visual.green : visual.border
-            Text { anchors.centerIn: parent; text: "Klimaautomatik"; color: view.automation.enabled === true ? visual.green : visual.text; font.pixelSize: 11; font.bold: true }
-            MouseArea { anchors.fill: parent; onClicked: view.patchAutomation(view.automation.enabled !== true, Number(view.automation.targetTemperature || 20)) }
+        Rectangle { x: 14; y: 208; width: 220; height: 47; radius: 13; color: visual.inner; border.color: visual.border
+            Row {
+                anchors.centerIn: parent; spacing: 4
+                Repeater {
+                    model: [{label:"Aus",mode:"off"},{label:"Manuell",mode:"manual"},{label:"Automatik",mode:"auto"}]
+                    delegate: Rectangle {
+                        width: modelData.mode === "manual" ? 70 : 66; height: 37; radius: 10
+                        property bool selected: view.climateControlMode === modelData.mode
+                        color: selected && modelData.mode === "auto" ? visual.selectedGreen : (selected ? visual.pressed : "transparent")
+                        border.color: selected && modelData.mode === "auto" ? visual.green : (selected ? visual.blue : "transparent")
+                        Text { anchors.centerIn: parent; text: modelData.label; color: selected && modelData.mode === "auto" ? visual.green : (selected ? visual.blue : visual.text); font.pixelSize: 8; font.bold: true }
+                        MouseArea { anchors.fill: parent; onClicked: view.setControlMode(modelData.mode) }
+                    }
+                }
+            }
         }
         Row {
             x: 14; y: 272; spacing: 8

@@ -406,7 +406,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="camper-control-preview-") as directory:
         app_file = prepare_app(Path(directory))
         view = PreviewView()
-        view.setTitle("CamperControl v3.12.0 – lokale UI-Vorschau (keine Hardware)")
+        view.setTitle("CamperControl v3.12.1 – lokale UI-Vorschau (keine Hardware)")
         view.setResizeMode(QQuickView.SizeRootObjectToView)
         view.setSource(QUrl.fromLocalFile(str(app_file)))
         if view.status() == QQuickView.Error:

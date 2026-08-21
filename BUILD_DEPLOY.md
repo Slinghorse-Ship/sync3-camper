@@ -1,6 +1,6 @@
 # Build und Deployment – CamperControl für Ford SYNC 3
 
-Diese Anleitung beschreibt den V2-only-Releaseweg für CamperControl 3.12.0.
+Diese Anleitung beschreibt den V2-only-Releaseweg für CamperControl 3.12.1.
 V1-QML, V1-Auswahl und alte Fahrzeugassets sind nicht enthalten.
 
 > **Zurückgezogene Pakete:** Der Kandidat aus Commit
@@ -22,13 +22,13 @@ Wetterquelle direkt auf und berechnet keine eigenen Ersatzwerte.
 | Merkmal | Wert |
 |---|---:|
 | Quellcommit | `325d91084fe32e95b60672bff3e3b0f252e91a4f` |
-| App-Version | `3.12.0` |
-| ZIP | `dist/CamperControl-SYNC3-v3.12.0.zip` |
+| App-Version | `3.12.1` |
+| ZIP | `dist/CamperControl-SYNC3-v3.12.1.zip` |
 | ZIP-Größe | `658932` Bytes |
 | ZIP-Einträge | `40` |
 | ZIP-SHA-256 | `4F6C20CD52CDE241D784F14B4A263CD4315F034E4023D1C10A6EC86DD848FDB9` |
 | Manifestierte Nutzdateien | `39` |
-| USB-Stage | `dist/CamperControl-SYNC3-v3.12.0-USB` |
+| USB-Stage | `dist/CamperControl-SYNC3-v3.12.1-USB` |
 | USB-Stage-Dateien | `40` |
 | Entpackte Nutzbytes | `859733` Bytes |
 | Content-Hash des USB-Stages | `394a411c56a703f9de7e88743c7862a14d78e6173794b00f257c607568e2d732` |
@@ -133,17 +133,17 @@ Dateimodi und für alle Einträge den festen ZIP-Zeitstempel
 `2026-08-20 00:00:00`. Er schreibt genau:
 
 ```text
-dist/CamperControl-SYNC3-v3.12.0.zip
+dist/CamperControl-SYNC3-v3.12.1.zip
 ```
 
 Zur unabhängigen Reproduzierbarkeitsprüfung wird ein zweites Archiv erzeugt:
 
 ```powershell
 python tools/build_release.py `
-  --output .\dist\CamperControl-SYNC3-v3.12.0-repeat.zip
+  --output .\dist\CamperControl-SYNC3-v3.12.1-repeat.zip
 
-$first = '.\dist\CamperControl-SYNC3-v3.12.0.zip'
-$second = '.\dist\CamperControl-SYNC3-v3.12.0-repeat.zip'
+$first = '.\dist\CamperControl-SYNC3-v3.12.1.zip'
+$second = '.\dist\CamperControl-SYNC3-v3.12.1-repeat.zip'
 $firstHash = (Get-FileHash -LiteralPath $first -Algorithm SHA256).Hash
 $secondHash = (Get-FileHash -LiteralPath $second -Algorithm SHA256).Hash
 if ($firstHash -ne $secondHash) { throw 'SYNC-Build ist nicht reproduzierbar' }
@@ -186,7 +186,7 @@ Der Content-Hash des entpackten Stages wird ordinal aus
 jeder Zeile gebildet:
 
 ```powershell
-$stageTarget = 'dist\CamperControl-SYNC3-v3.12.0-USB'
+$stageTarget = 'dist\CamperControl-SYNC3-v3.12.1-USB'
 if (Test-Path -LiteralPath $stageTarget) {
     throw 'Lokaler USB-Prüfstage muss vor dem Entpacken fehlen'
 }
@@ -251,7 +251,7 @@ $existing = @(Get-ChildItem -LiteralPath $usbRoot -Force)
 if ($existing.Count -ne 0) { throw 'USB-Stick ist nicht leer' }
 
 Expand-Archive `
-  -LiteralPath .\dist\CamperControl-SYNC3-v3.12.0.zip `
+  -LiteralPath .\dist\CamperControl-SYNC3-v3.12.1.zip `
   -DestinationPath $usbRoot
 
 $usbFiles = @(Get-ChildItem -LiteralPath $usbRoot -File -Recurse)

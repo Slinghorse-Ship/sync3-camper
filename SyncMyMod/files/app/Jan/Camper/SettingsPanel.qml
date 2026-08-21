@@ -13,7 +13,7 @@ Item {
             selectedWifiSsid = wifi.ssid
             selectedWifiService = serviceForSsid(wifi.ssid)
         }
-        scroller.contentY = 1147
+        scroller.contentY = 1347
     }
 
     function wifiName(entry) {
@@ -81,7 +81,7 @@ Item {
     Flickable {
         id: scroller
         x: 0; y: 54; width: 800; height: 368
-        contentWidth: width; contentHeight: 2230
+        contentWidth: width; contentHeight: 2430
         clip: true; boundsBehavior: Flickable.StopAtBounds
 
         Rectangle {
@@ -165,6 +165,37 @@ Item {
         Rectangle {
             x: 14; y: 671; width: 772; height: 221; radius: 13
             color: host.panelColor; border.color: host.lineColor
+            Text { x: 16; y: 13; text: "AUTOTERM-KÄLTESCHUTZ"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
+            Text { x: 16; y: 34; width: 550; text: "Automatisch frostfrei halten · Batterie- und AUTOTERM-Schutz bleiben aktiv"; color: host.secondaryText; font.pixelSize: 8 }
+            TouchButton {
+                objectName: "v2ColdProtectionSwitch"
+                x: 600; y: 10; width: 156; height: 42
+                label: host.coldProtectionEnabled ? "KÄLTESCHUTZ EIN" : "KÄLTESCHUTZ AUS"
+                fontSize: 8; active: host.coldProtectionEnabled
+                onClicked: host.toggleColdProtection()
+            }
+            Repeater {
+                model: [
+                    { key: "startTemperature", title: "START UNTER", value: host.coldProtectionStartTemperature, suffix: " °C" },
+                    { key: "stopTemperature", title: "STOPP AB", value: host.coldProtectionStopTemperature, suffix: " °C" },
+                    { key: "power", title: "HEIZSTUFE", value: host.coldProtectionPower, suffix: " / 10" }
+                ]
+                delegate: Rectangle {
+                    property var control: modelData
+                    x: 16 + index * 244; y: 62; width: 236; height: 80; radius: 9
+                    color: host.innerPanelColor; border.color: host.lineColor
+                    Text { x: 10; y: 7; width: 216; horizontalAlignment: Text.AlignHCenter; text: control.title; color: host.secondaryText; font.pixelSize: 8; font.bold: true }
+                    TouchButton { x: 10; y: 30; width: 46; height: 39; label: "−"; fontSize: 17; onClicked: host.changeColdProtection(control.key, -1) }
+                    Text { x: 58; y: 42; width: 120; horizontalAlignment: Text.AlignHCenter; text: control.value + control.suffix; color: host.primaryText; font.pixelSize: 12; font.bold: true }
+                    TouchButton { x: 180; y: 30; width: 46; height: 39; label: "+"; fontSize: 17; onClicked: host.changeColdProtection(control.key, 1) }
+                }
+            }
+            Text { x: 16; y: 155; text: "Fester Sensor: Ruuvi B7B8 · Boden · sichere Vorgabe 3 / 5 °C · Stufe 4"; color: host.secondaryText; font.pixelSize: 8 }
+        }
+
+        Rectangle {
+            x: 14; y: 871; width: 772; height: 221; radius: 13
+            color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "LICHT-ZUORDNUNG · STAR-POWER CH 7–12"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Repeater {
                 model: Math.min(6, host.lightMapping.length)
@@ -182,7 +213,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 902; width: 772; height: 230; radius: 13
+            x: 14; y: 1102; width: 772; height: 230; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "NETZWERK · BLUETOOTH · CERBO GX"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Rectangle {
@@ -216,7 +247,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1142; width: 772; height: 300; radius: 13
+            x: 14; y: 1342; width: 772; height: 300; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "EXTERNES WLAN · NETGEAR USB"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Text {
@@ -295,9 +326,9 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1452; width: 772; height: 262; radius: 13
+            x: 14; y: 1652; width: 772; height: 262; radius: 13
             color: host.panelColor; border.color: host.lineColor
-            Text { x: 16; y: 13; text: "MELDUNGEN" + (host.eventData.unacknowledgedCount ? " · " + host.eventData.unacknowledgedCount + " OFFEN" : ""); color: "#f6a23c"; font.pixelSize: 10; font.bold: true }
+            Text { x: 16; y: 13; text: "MELDUNGEN · LETZTE 25 GESPEICHERT"; color: "#f6a23c"; font.pixelSize: 10; font.bold: true }
             Text { visible: !host.eventData.recent || !host.eventData.recent.length; anchors.centerIn: parent; text: "Keine Meldungen"; color: host.secondaryText; font.pixelSize: 12 }
             Repeater {
                 model: host.eventData.recent ? Math.min(5, host.eventData.recent.length) : 0
@@ -305,15 +336,14 @@ Item {
                     property var entry: host.eventData.recent[index]
                     x: 16; y: 38 + index * 42; width: 740; height: 36; radius: 7; color: host.innerPanelColor; border.color: host.lineColor
                     Text { x: 10; y: 6; width: 125; text: String(entry.source || "SYSTEM").toUpperCase(); color: entry.level === "error" ? "#fb737b" : "#f6a23c"; font.pixelSize: 8; font.bold: true }
-                    Text { x: 138; y: 6; width: 445; elide: Text.ElideRight; text: entry.text || entry.code || "Meldung"; color: host.primaryText; font.pixelSize: 9 }
+                    Text { x: 138; y: 6; width: 590; elide: Text.ElideRight; text: entry.text || entry.code || "Meldung"; color: host.primaryText; font.pixelSize: 9 }
                     Text { x: 138; y: 21; text: host.timeText(entry.createdAt); color: host.secondaryText; font.pixelSize: 7 }
-                    TouchButton { x: 620; y: 4; width: 108; height: 28; label: entry.acknowledgedAt ? "BESTÄTIGT" : "BESTÄTIGEN"; fontSize: 7; enabled: !entry.acknowledgedAt; active: !!entry.acknowledgedAt; onClicked: host.acknowledgeEvent(entry.id) }
                 }
             }
         }
 
         Rectangle {
-            x: 14; y: 1724; width: 772; height: 300; radius: 13
+            x: 14; y: 1924; width: 772; height: 300; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "SERVICE & WARTUNG"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Repeater {
@@ -330,7 +360,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 2034; width: 772; height: 111; radius: 13; color: host.panelColor; border.color: host.lineColor
+            x: 14; y: 2234; width: 772; height: 111; radius: 13; color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 12; text: "DATENQUELLEN & LIZENZEN"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Text { x: 16; y: 36; width: 740; text: "Quelle: Deutscher Wetterdienst · CC BY 4.0 · Stationsauswahl, Normalisierung und Tagesaggregation"; color: host.secondaryText; font.pixelSize: 8 }
             Text { x: 16; y: 58; width: 740; text: "© Bundesamt für Seeschifffahrt und Hydrographie (BSH) · CC BY 4.0 · UTC/cm→m und Kurvenreduktion"; color: host.secondaryText; font.pixelSize: 8 }
@@ -338,7 +368,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 2155; width: 772; height: 52; radius: 13; color: host.panelColor; border.color: host.lineColor
+            x: 14; y: 2355; width: 772; height: 52; radius: 13; color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 10; width: 560; text: "Nur lokales Netz · keine Portweiterleitung ins Internet · Cerbo-Neustart erfordert zwei Betätigungen"; wrapMode: Text.WordWrap; color: host.secondaryText; font.pixelSize: 8 }
             TouchButton { x: 612; y: 7; width: 144; height: 38; label: "ALLES SPEICHERN"; fontSize: 8; active: true; onClicked: host.saveSettings() }
         }

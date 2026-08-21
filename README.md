@@ -1,4 +1,4 @@
-# CamperControl 3.12.0 für SYNC 3.4 / FMods
+# CamperControl 3.12.1 für SYNC 3.4 / FMods
 
 Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine native QNX-Binärdatei, keine Qt-WebSocket-Erweiterung und kein separates Desktop-QML-Projekt.
 
@@ -14,7 +14,7 @@ Dank an [Au{R}oN](https://syncdb.fmods.net/developers/auron89) (syncdb.fmods.net
 
 ## Installation
 
-Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.12.0 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
+Den Inhalt des ZIPs in das Stammverzeichnis eines leeren USB-Sticks entpacken. Dort müssen `SyncMyMod` und `DONTINDX.MSA` liegen. Dieser eine Installer installiert die QML-App, registriert `com.jan.camper` in Version 3.12.1 und integriert gleichzeitig Transit-Symbol, globalen Root-Loader sowie den Kamera- und Parkpilot-Vorrang in die Ford-Statusleiste. Bei einem Upgrade wird der geprüfte Kamera-Sichtbarkeitsblock ohne Aufruf des Patch-Programms atomar ersetzt. Vor jeder Änderung werden App, `apps.json`, `Root.qml` und Statusleiste geprüft und gesichert. Bei einem unbekannten Ford-QML-Stand wird nichts verändert.
 
 Version 3.12.0 ist ein **V2-only-Release**. V1 ist weder auswählbar noch im USB-ZIP enthalten; ein vorhandener V1-Wert in der lokalen Alt-Konfiguration wird ignoriert. Beim Upgrade entfernt der Installer nach dem vollständigen Rollback-Backup nur die exakt bekannten, nicht mehr referenzierten V1-Dateien. Die Ford-Systemseite und der obere Schließen-Knopf bleiben erhalten.
 
@@ -138,7 +138,9 @@ gesendet; SYNC speichert weder GPS-Koordinaten noch einen eigenen Standort.
 Quellen-, Verarbeitungs- und Lizenzhinweise stehen unaufdringlich am Ende der
 Einstellungsseite.
 
-Das reproduzierbare V2-only-Archiv wird mit `python tools/build_release.py` unter `dist/CamperControl-SYNC3-v3.12.0.zip` erzeugt. Der Builder verwendet für das App-Verzeichnis eine feste Positivliste und prüft damit gleichzeitig, dass keine V1-QML oder alten Fahrzeugbilder in das ZIP gelangen. Zusätzlich enthält das Archiv ein POSIX-`cksum`-Manifest über jeden anderen ZIP-Eintrag; der Geräte-Preflight prüft damit Pfad, Größe und Prüfsumme vollständig, bevor er Ford-Dateien verändert. Fehlgeschlagene Installationen verwenden einen separaten Transaktions-Snapshot. Die ursprünglichen Ford-Dateien liegen als schreibgeschützter, nicht bei Upgrades überschriebener Restore-Vertrag unter `/fs/rwdata/fmods/mods/camper-complete/original`.
+Das reproduzierbare V2-only-Archiv wird mit `python tools/build_release.py` unter `dist/CamperControl-SYNC3-v3.12.1.zip` erzeugt. Der Builder verwendet für das App-Verzeichnis eine feste Positivliste und prüft damit gleichzeitig, dass keine V1-QML oder alten Fahrzeugbilder in das ZIP gelangen. Zusätzlich enthält das Archiv ein POSIX-`cksum`-Manifest über jeden anderen ZIP-Eintrag; der Geräte-Preflight prüft damit Pfad, Größe und Prüfsumme vollständig, bevor er Ford-Dateien verändert. Fehlgeschlagene Installationen verwenden einen separaten Transaktions-Snapshot. Die ursprünglichen Ford-Dateien liegen als schreibgeschützter, nicht bei Upgrades überschriebener Restore-Vertrag unter `/fs/rwdata/fmods/mods/camper-complete/original`.
+
+Version 3.12.1 ergänzt den zentralen AUTOTERM-Kälteschutzschalter unter Einstellungen mit Start-/Stopptemperatur, Heizstufe und festem Ruuvi-B7B8-Bodensensor. CamperControl-Meldungen sind ein bestätigungsfreier Verlauf; der Cerbo speichert nur die letzten 25 Einträge.
 
 Version 3.11.1 passt V2 an die reale 800 × 480-SYNC-Anzeige an: Der Tag-/Nacht-Hintergrund reicht ohne künstlichen dunklen Rundrahmen bis in alle vier Displayecken, das Transit-Liniensymbol ist transparent freigestellt und trägt den kompakten FORD-Grill. Der obere rechte Knopf schließt die App über den vorhandenen Ford-/FMods-Rückweg; Einstellungen bleiben über `System` erreichbar.
 
@@ -175,7 +177,7 @@ Die Konfiguration liegt unter `/fs/rwdata/fmods/mods/camper/config.json`.
 - eigene Seite „12/230 V“ für MultiPlus, 12 V links/rechts, Wasserpumpe, manuelles Fernlicht, Starlink und MaxxFan-Versorgung
 - frei konfigurierbare Szenen
 - physisch bestätigte Befehle im Diagnoseprotokoll, ohne störende Einblendung über der Bedienoberfläche
-- Alarm- und Ereigniscenter mit Quittierung
+- bestätigungsfreier Alarm- und Ereignisverlauf mit maximal 25 gespeicherten Meldungen
 - Geräteverbindungen, Abbrüche und Antwortzeiten
 - Verlauf, Batterie-/Wasserprognose und Wartungsplan
 - keine zündungs-, geschwindigkeits- oder gangabhängigen Bediengrenzen

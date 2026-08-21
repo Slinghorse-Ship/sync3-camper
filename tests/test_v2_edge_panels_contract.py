@@ -365,7 +365,7 @@ checks = {
     ),
     "installer requires the edge-panel payload": '"${APP_SOURCE}/V2EdgePanels.qml"' in installer,
     "release version is consistent": all(
-        "3.12.0" in text for text in (installer, readme, app_entry, wrapper, shell, preview)
+        "3.12.1" in text for text in (installer, readme, app_entry, wrapper, shell, preview)
     ),
 }
 
