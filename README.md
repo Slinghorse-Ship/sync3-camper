@@ -188,6 +188,20 @@ Die App fragt den gemeinsamen Zustand alle 1,5 Sekunden über die einzige aktuel
 
 Sie ist Bestandteil desselben `SyncMyMod`-Installers. Unterstützt werden die geprüfte originale Ford-Datei, die ältere Camper-Integration und der bereits aktuelle Stand. Bei Rückfahr- oder Frontkamera bleibt die App geladen, wird aber für die gesamte Vollbild-Kameraansicht unsichtbar und erscheint danach auf derselben Seite wieder.
 
+## Haftungsausschluss zu Ford
+
+Ford, FORD, das Ford-Logo sowie SYNC sind Marken von Ford Motor Company bzw. ihren Partnern.
+Diese App ist unabhängig von Ford entwickelt, steht nicht unter offizieller
+Freigabe oder Wartung von Ford/FMods und wird auf eigene Gefahr in
+modifizierten Fahrzeugumgebungen verwendet.
+
+Die Integration nutzt die vom Benutzer bereitgestellte SYNC-/FMods-Umgebung;
+für sicherheitsrelevante Fahrzeugfunktionen, Haftungsfragen oder Schäden am
+Fahrzeug ist ausschließlich der Fahrzeughersteller bzw. die verantwortliche
+Werkstatt/Instanz zuständig. Der Einsatz in Navigations-, Kamera- oder
+Assistenzfunktionen erfolgt ohne Einfluss auf fahrzeugseitige
+Sicherheitsmechanismen.
+
 ## Entfernen
 
 Im Custom Apps Loader die Camper-Kachel lange drücken und die Löschung bestätigen. Dessen `app_delete.sh` ruft das mitgelieferte `uninstall.sh` auf und entfernt anschließend App-Eintrag und App-Ordner.
