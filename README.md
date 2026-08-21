@@ -2,6 +2,8 @@
 
 Reine QtQuick-2.6-App für den **Custom Apps Loader 2.3**. Sie benötigt keine native QNX-Binärdatei, keine Qt-WebSocket-Erweiterung und kein separates Desktop-QML-Projekt.
 
+Dank an Custom Apps Loader by [Au{R}oN](https://syncdb.fmods.net/developers/auron89) (syncdb.fmods.net).
+
 ## Voraussetzungen
 
 - gejailbreaktes SYNC 3.4,
