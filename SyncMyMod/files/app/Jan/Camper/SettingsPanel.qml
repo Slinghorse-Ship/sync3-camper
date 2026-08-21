@@ -13,7 +13,7 @@ Item {
             selectedWifiSsid = wifi.ssid
             selectedWifiService = serviceForSsid(wifi.ssid)
         }
-        scroller.contentY = 905
+        scroller.contentY = 1147
     }
 
     function wifiName(entry) {
@@ -81,7 +81,7 @@ Item {
     Flickable {
         id: scroller
         x: 0; y: 54; width: 800; height: 368
-        contentWidth: width; contentHeight: 1868
+        contentWidth: width; contentHeight: 2230
         clip: true; boundsBehavior: Flickable.StopAtBounds
 
         Rectangle {
@@ -89,7 +89,7 @@ Item {
             color: host.panelColor; border.color: host.fordBlue
             Text { x: 16; y: 13; text: "OBERFLÄCHE"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Text { x: 16; y: 36; text: "Transit Horizon V2"; color: host.primaryText; font.pixelSize: 12; font.bold: true }
-            Text { x: 16; y: 58; width: 620; clip: true; elide: Text.ElideRight; text: "Stern: Favoriten · Wolke: DWD-Wetter · Kantenwisch bleibt aktiv"; color: host.secondaryText; font.pixelSize: 9 }
+            Text { x: 16; y: 58; width: 620; clip: true; elide: Text.ElideRight; text: "Stern: Favoriten · Wolke: Wetter & Tide · Kantenwisch bleibt aktiv"; color: host.secondaryText; font.pixelSize: 9 }
             Rectangle {
                 x: 652; y: 22; width: 96; height: 48; radius: 11
                 color: host.dayMode ? "#dceff8" : "#102d3d"; border.color: host.fordBlue
@@ -143,6 +143,28 @@ Item {
         Rectangle {
             x: 14; y: 440; width: 772; height: 221; radius: 13
             color: host.panelColor; border.color: host.lineColor
+            Text { x: 16; y: 13; text: "WETTER & TIDE · ZENTRAL AUF DEM CERBO"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
+            Rectangle {
+                x: 16; y: 38; width: 740; height: 58; radius: 9; color: host.innerPanelColor; border.color: host.lineColor
+                Text { x: 10; y: 8; text: "WETTERSTANDORT · DWD"; color: host.secondaryText; font.pixelSize: 8; font.bold: true }
+                Text { objectName: "v2WeatherLocationName"; x: 10; y: 29; width: 570; clip: true; elide: Text.ElideRight; text: host.locationName("weather"); color: host.primaryText; font.pixelSize: 10; font.bold: true }
+                TouchButton { x: 606; y: 8; width: 54; height: 42; label: "−"; fontSize: 17; onClicked: host.changeWeatherLocation("weather", -1) }
+                TouchButton { x: 672; y: 8; width: 54; height: 42; label: "+"; fontSize: 17; onClicked: host.changeWeatherLocation("weather", 1) }
+            }
+            Rectangle {
+                x: 16; y: 104; width: 740; height: 58; radius: 9; color: host.innerPanelColor; border.color: host.lineColor
+                Text { x: 10; y: 8; text: "TIDESTATION · BSH-NORDSEE"; color: host.secondaryText; font.pixelSize: 8; font.bold: true }
+                Text { objectName: "v2TideLocationName"; x: 10; y: 29; width: 570; clip: true; elide: Text.ElideRight; text: host.locationName("tide"); color: host.primaryText; font.pixelSize: 10; font.bold: true }
+                TouchButton { x: 606; y: 8; width: 54; height: 42; label: "−"; fontSize: 17; onClicked: host.changeWeatherLocation("tide", -1) }
+                TouchButton { x: 672; y: 8; width: 54; height: 42; label: "+"; fontSize: 17; onClicked: host.changeWeatherLocation("tide", 1) }
+            }
+            Text { x: 16; y: 173; width: 620; wrapMode: Text.WordWrap; text: "GPS ist Standard. Ohne nahe Nordseestation bleibt Tide mit Wilhelmshaven sichtbar."; color: host.secondaryText; font.pixelSize: 8 }
+            Text { visible: host.weatherLocationDirty; x: 622; y: 177; width: 134; horizontalAlignment: Text.AlignRight; text: "NOCH SPEICHERN"; color: "#f6a23c"; font.pixelSize: 8; font.bold: true }
+        }
+
+        Rectangle {
+            x: 14; y: 671; width: 772; height: 221; radius: 13
+            color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "LICHT-ZUORDNUNG · STAR-POWER CH 7–12"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Repeater {
                 model: Math.min(6, host.lightMapping.length)
@@ -160,7 +182,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 671; width: 772; height: 230; radius: 13
+            x: 14; y: 902; width: 772; height: 230; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "NETZWERK · BLUETOOTH · CERBO GX"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Rectangle {
@@ -194,7 +216,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 911; width: 772; height: 300; radius: 13
+            x: 14; y: 1142; width: 772; height: 300; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "EXTERNES WLAN · NETGEAR USB"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Text {
@@ -273,7 +295,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1221; width: 772; height: 262; radius: 13
+            x: 14; y: 1452; width: 772; height: 262; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "MELDUNGEN" + (host.eventData.unacknowledgedCount ? " · " + host.eventData.unacknowledgedCount + " OFFEN" : ""); color: "#f6a23c"; font.pixelSize: 10; font.bold: true }
             Text { visible: !host.eventData.recent || !host.eventData.recent.length; anchors.centerIn: parent; text: "Keine Meldungen"; color: host.secondaryText; font.pixelSize: 12 }
@@ -291,7 +313,7 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1493; width: 772; height: 300; radius: 13
+            x: 14; y: 1724; width: 772; height: 300; radius: 13
             color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 13; text: "SERVICE & WARTUNG"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
             Repeater {
@@ -308,7 +330,15 @@ Item {
         }
 
         Rectangle {
-            x: 14; y: 1803; width: 772; height: 52; radius: 13; color: host.panelColor; border.color: host.lineColor
+            x: 14; y: 2034; width: 772; height: 111; radius: 13; color: host.panelColor; border.color: host.lineColor
+            Text { x: 16; y: 12; text: "DATENQUELLEN & LIZENZEN"; color: host.fordBlue; font.pixelSize: 10; font.bold: true }
+            Text { x: 16; y: 36; width: 740; text: "Quelle: Deutscher Wetterdienst · CC BY 4.0 · Stationsauswahl, Normalisierung und Tagesaggregation"; color: host.secondaryText; font.pixelSize: 8 }
+            Text { x: 16; y: 58; width: 740; text: "© Bundesamt für Seeschifffahrt und Hydrographie (BSH) · CC BY 4.0 · UTC/cm→m und Kurvenreduktion"; color: host.secondaryText; font.pixelSize: 8 }
+            Text { x: 16; y: 80; width: 740; text: "CamperControl-Software · PolyForm Noncommercial 1.0.0"; color: host.secondaryText; font.pixelSize: 8 }
+        }
+
+        Rectangle {
+            x: 14; y: 2155; width: 772; height: 52; radius: 13; color: host.panelColor; border.color: host.lineColor
             Text { x: 16; y: 10; width: 560; text: "Nur lokales Netz · keine Portweiterleitung ins Internet · Cerbo-Neustart erfordert zwei Betätigungen"; wrapMode: Text.WordWrap; color: host.secondaryText; font.pixelSize: 8 }
             TouchButton { x: 612; y: 7; width: 144; height: 38; label: "ALLES SPEICHERN"; fontSize: 8; active: true; onClicked: host.saveSettings() }
         }

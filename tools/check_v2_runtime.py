@@ -82,7 +82,8 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     favorite_save_button = root.findChild(QObject, "v2FavoriteSaveButton")
     weather_panel = root.findChild(QObject, "v2WeatherPanel")
     weather_chart = root.findChild(QObject, "v2Weather24HourChart")
-    tide_summary = root.findChild(QObject, "v2TideSummary")
+    tide_summary = root.findChild(QObject, "v2WeatherSunTide")
+    battery_flow = root.findChild(QObject, "v2BatteryFlow")
     api = root.findChild(QObject, "camperApiClient")
     required_objects = {
         "modernShell": shell,
@@ -104,7 +105,8 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
         "v2FavoriteSaveButton": favorite_save_button,
         "v2WeatherPanel": weather_panel,
         "v2Weather24HourChart": weather_chart,
-        "v2TideSummary": tide_summary,
+        "v2WeatherSunTide": tide_summary,
+        "v2BatteryFlow": battery_flow,
         "camperApiClient": api,
     }
     missing_objects = [name for name, item in required_objects.items() if item is None]
@@ -152,8 +154,8 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
 
     checks = 0
 
-    # Home keeps the Victron system DC total separate from direct battery flow.
-    # Positive SmartShunt power means charging; negative means discharging.
+    # Home keeps the Victron system DC total separate from the central Cerbo
+    # system-battery flow. Positive power means charging; negative discharging.
     flow_cases = (
         (52, "↑ Lädt +52 W"),
         (-52, "↓ Entlädt 52 W"),
@@ -164,6 +166,8 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
         actual = shell.batteryFlowText(value)
         if actual != expected:
             raise AssertionError(f"Battery-flow formatter expected {expected!r} for {value!r}, got {actual!r}")
+    if battery_flow.property("text") != "↓ Entlädt 138 W":
+        raise AssertionError("The SYNC Home did not render energy.battery.power from the shared snapshot")
     runtime_cases = (
         ((17 * 3600, -52), "17 h"),
         ((90 * 3600, -52), "3,8 Tage"),
@@ -177,7 +181,7 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     checks += 1
 
     # Visible header controls are adjacent to the clock and only change the
-    # shared panel state. They remain above the scrim for direct panel switching.
+    # shared panel state. GX closes one overlay before another can be opened.
     if (int(favorites_header_button.property("x")), int(favorites_header_button.property("width")),
             int(favorites_header_button.property("height"))) != (512, 42, 42):
         raise AssertionError("Favorites header control is not the required 42-pixel target")
@@ -191,19 +195,25 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     click(533, 27)
     if edge_panels.property("activePanel") != -1 or favorites_header_button.property("active") is not True:
         raise AssertionError("Visible star control did not open/activate Favorites")
+    click(302, 34)
+    if edge_panels.property("activePanel") != 0:
+        raise AssertionError("Shared close control did not close Favorites")
     click(581, 27)
     if (edge_panels.property("activePanel") != 1 or weather_header_button.property("active") is not True
             or favorites_header_button.property("active") is not False):
-        raise AssertionError("Visible cloud control did not switch exclusively to DWD Weather")
+        raise AssertionError("Visible cloud control did not open DWD Weather")
     command_result = api.property("lastCommandResult")
     command_result = command_result.toVariant() if hasattr(command_result, "toVariant") else command_result
     if command_result:
         raise AssertionError("Header panel controls issued a backend command")
     if variant(api.property("lastCommandRequest")):
         raise AssertionError("Header panel controls touched the API request path")
+    click(770, 27)
+    if edge_panels.property("activePanel") != 0:
+        raise AssertionError("Shared close control did not close DWD Weather")
     click(533, 27)
     if edge_panels.property("activePanel") != -1:
-        raise AssertionError("Visible star control did not switch back to Favorites")
+        raise AssertionError("Visible star control did not reopen Favorites")
     click(302, 34)
     if edge_panels.property("activePanel") != 0:
         raise AssertionError("Shared close control did not reset the header panel state")
@@ -299,17 +309,17 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     # The Cerbo backend emits these cloud labels and DWD ww codes. None of
     # them may fall through to the question-mark/unknown icon on SYNC.
     cloud_icon_cases = (
-        ({"icon": "cloudy"}, "backend icon cloudy"),
-        ({"icon": "partly-cloudy"}, "backend icon partly-cloudy"),
-        ({"icon": "overcast"}, "backend icon overcast"),
-        ({"ww": 1}, "DWD ww 1"),
-        ({"ww": 2}, "DWD ww 2"),
-        ({"ww": 3}, "DWD ww 3"),
+        ({"icon": "cloudy"}, "weatherCloud", "backend icon cloudy"),
+        ({"icon": "partly-cloudy"}, "weatherPartly", "backend icon partly-cloudy"),
+        ({"icon": "overcast"}, "weatherCloud", "backend icon overcast"),
+        ({"ww": 1}, "weatherPartly", "DWD ww 1"),
+        ({"ww": 2}, "weatherPartly", "DWD ww 2"),
+        ({"ww": 3}, "weatherCloud", "DWD ww 3"),
     )
-    for weather_item, label in cloud_icon_cases:
+    for weather_item, expected, label in cloud_icon_cases:
         actual = edge_panels.weatherIcon(weather_item)
-        if actual != "weatherCloud":
-            raise AssertionError(f"{label} expected weatherCloud, got {actual!r}")
+        if actual != expected:
+            raise AssertionError(f"{label} expected {expected}, got {actual!r}")
     checks += 1
 
     click(302, 34)
@@ -329,9 +339,9 @@ with tempfile.TemporaryDirectory(prefix="camper-v2-runtime-") as directory:
     if len(tide_curve) < 2 or len(tide_curve) > 27:
         raise AssertionError("Weather chart did not receive the bounded BSH tide curve")
     tide_text = str(tide_summary.property("text"))
-    if tide_summary.property("visible") is not True or not all(token in tide_text for token in ("HW", "NW", "m PNP")):
+    if tide_summary.property("visible") is not True or not all(token in tide_text for token in ("BSH Tide", "HW", "NW", "Wilhelmshaven Alter Vorhafen")):
         raise AssertionError("Optional BSH tide snapshot was not rendered beside the sun data")
-    click(274, 34)
+    click(770, 27)
     if edge_panels.property("activePanel") != 0:
         raise AssertionError("Shared edge-panel close control did not close weather")
     checks += 1

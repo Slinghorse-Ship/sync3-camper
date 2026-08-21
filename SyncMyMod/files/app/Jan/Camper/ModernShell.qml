@@ -271,7 +271,7 @@ Item {
             x: 528; y: 57; width: 220; spacing: 8
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { x: 14; y: 14; text: "Kanten-Gesten"; color: visual.text; font.pixelSize: 10; font.bold: true }
-                Text { x: 14; y: 35; text: "Links Favoriten · rechts Wetter"; color: visual.muted; font.pixelSize: 8 }
+                Text { x: 14; y: 35; text: "Links Favoriten · rechts Wetter & Tide"; color: visual.muted; font.pixelSize: 8 }
             }
             Rectangle { width: 220; height: 62; radius: 12; color: visual.inner
                 Text { x: 14; y: 14; text: "CamperControl"; color: visual.text; font.pixelSize: 10; font.bold: true }

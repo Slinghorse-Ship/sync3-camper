@@ -1,5 +1,7 @@
 import QtQuick 2.6
 
+// Original CamperControl device drawings plus selected navigation symbols
+// adapted from Lucide; see the repository NOTICE.md and LICENSE-LUCIDE.txt.
 Canvas {
     id: icon
     property string kind: "home"

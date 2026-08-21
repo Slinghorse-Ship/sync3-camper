@@ -113,12 +113,12 @@ Canvas {
         // definiert. Dieselben Werte werden auf SYNC und GX verwendet:
         // links:  Front (.3000,.1361)-(.5661,.1361), Seite
         //         (.6571,.0944) / (.8107,.0972), Heck (.7714,.0139)
-        // rechts: Front (.4696,.1667)-(.7196,.1806), Seite
+        // rechts: Front (.4696,.1000)-(.7125,.1139), Seite
         //         (.1125,.1139) / (.2625,.1111), Heck (.0768,.0139).
         // Die Touchflächen bleiben bewusst größer; der sichtbare Lichtkörper
         // sitzt dagegen ausschließlich direkt auf der jeweiligen Lampe.
         var frontBar = geometryRightView
-                ? [.4696, .1667, .7196, .1806]
+                ? [.4696, .1000, .7125, .1139]
                 : [.3000, .1361, .5661, .1361]
         if (highBeamOn) {
             roofBar(ctx, frontBar, "rgba(108,198,255,0.96)", 100, 6)
